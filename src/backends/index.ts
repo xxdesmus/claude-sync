@@ -1,4 +1,5 @@
 import { createGitBackend } from "./git.js";
+import { createS3Backend, type S3Config } from "./s3.js";
 
 export interface RemoteSession {
   id: string;
@@ -26,8 +27,7 @@ export async function getBackend(config: Config): Promise<Backend> {
     case "git":
       return createGitBackend();
     case "s3":
-      // TODO: Implement S3 backend
-      throw new Error("S3 backend not yet implemented");
+      return createS3Backend(config.backendConfig as unknown as S3Config);
     default:
       throw new Error(`Unknown backend: ${config.backend}`);
   }

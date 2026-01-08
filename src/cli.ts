@@ -20,7 +20,11 @@ program
   .command("init")
   .description("Initialize claude-sync with your storage backend")
   .option("--git <url>", "Use a Git repository for storage")
-  .option("--s3 <bucket>", "Use S3-compatible storage")
+  .option("--s3 <bucket>", "Use AWS S3 bucket")
+  .option("--gcs <bucket>", "Use Google Cloud Storage bucket")
+  .option("--r2 <bucket>", "Use Cloudflare R2 bucket")
+  .option("--region <region>", "AWS/S3 region")
+  .option("--endpoint <url>", "Custom S3 endpoint URL")
   .action(init);
 
 program

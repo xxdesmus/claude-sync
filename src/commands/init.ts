@@ -8,7 +8,17 @@ import { saveConfig } from "../utils/config.js";
 interface InitOptions {
   git?: string;
   s3?: string;
+  gcs?: string;
+  r2?: string;
+  region?: string;
+  endpoint?: string;
 }
+
+// Common S3-compatible endpoints
+const S3_ENDPOINTS = {
+  gcs: "https://storage.googleapis.com",
+  r2: "https://{account_id}.r2.cloudflarestorage.com", // User needs to replace {account_id}
+};
 
 export async function init(options: InitOptions): Promise<void> {
   console.log(chalk.bold("\n🔄 Claude Sync Setup\n"));
@@ -22,7 +32,25 @@ export async function init(options: InitOptions): Promise<void> {
     backendConfig = { url: options.git };
   } else if (options.s3) {
     backend = "s3";
-    backendConfig = { bucket: options.s3 };
+    backendConfig = {
+      bucket: options.s3,
+      ...(options.region && { region: options.region }),
+      ...(options.endpoint && { endpoint: options.endpoint }),
+    };
+  } else if (options.gcs) {
+    backend = "s3";
+    backendConfig = {
+      bucket: options.gcs,
+      endpoint: S3_ENDPOINTS.gcs,
+      region: "auto",
+    };
+  } else if (options.r2) {
+    backend = "s3";
+    backendConfig = {
+      bucket: options.r2,
+      endpoint: options.endpoint || S3_ENDPOINTS.r2,
+      region: "auto",
+    };
   } else {
     // Interactive setup
     const answers = await inquirer.prompt([
@@ -32,41 +60,115 @@ export async function init(options: InitOptions): Promise<void> {
         message: "Where do you want to store your synced sessions?",
         choices: [
           { name: "Git repository (GitHub, GitLab, etc.)", value: "git" },
-          { name: "S3-compatible storage (AWS, R2, MinIO)", value: "s3" },
+          { name: "AWS S3", value: "s3" },
+          { name: "Google Cloud Storage", value: "gcs" },
+          { name: "Cloudflare R2", value: "r2" },
+          { name: "Other S3-compatible (MinIO, etc.)", value: "s3-custom" },
         ],
       },
     ]);
 
-    backend = answers.backend;
+    const choice = answers.backend;
 
-    if (backend === "git") {
+    if (choice === "git") {
+      backend = "git";
       const gitAnswers = await inquirer.prompt([
         {
           type: "input",
           name: "url",
           message: "Git repository URL (use a private repo!):",
           validate: (input: string) =>
-            input.includes("github.com") || input.includes("gitlab.com")
-              ? true
-              : "Please enter a valid Git URL",
+            input.length > 0 ? true : "Please enter a Git URL",
         },
       ]);
       backendConfig = { url: gitAnswers.url };
     } else {
-      const s3Answers = await inquirer.prompt([
-        {
-          type: "input",
-          name: "bucket",
-          message: "S3 bucket name:",
-        },
-        {
-          type: "input",
-          name: "endpoint",
-          message: "S3 endpoint (leave blank for AWS):",
-          default: "",
-        },
-      ]);
-      backendConfig = s3Answers;
+      backend = "s3";
+
+      if (choice === "s3") {
+        // AWS S3
+        const s3Answers = await inquirer.prompt([
+          {
+            type: "input",
+            name: "bucket",
+            message: "S3 bucket name:",
+            validate: (input: string) => input.length > 0 || "Bucket name required",
+          },
+          {
+            type: "input",
+            name: "region",
+            message: "AWS region:",
+            default: "us-east-1",
+          },
+        ]);
+        backendConfig = s3Answers;
+      } else if (choice === "gcs") {
+        // Google Cloud Storage
+        const gcsAnswers = await inquirer.prompt([
+          {
+            type: "input",
+            name: "bucket",
+            message: "GCS bucket name:",
+            validate: (input: string) => input.length > 0 || "Bucket name required",
+          },
+        ]);
+        backendConfig = {
+          bucket: gcsAnswers.bucket,
+          endpoint: S3_ENDPOINTS.gcs,
+          region: "auto",
+        };
+        console.log(
+          chalk.dim("\nNote: Set GOOGLE_APPLICATION_CREDENTIALS or use gcloud auth\n")
+        );
+      } else if (choice === "r2") {
+        // Cloudflare R2
+        const r2Answers = await inquirer.prompt([
+          {
+            type: "input",
+            name: "bucket",
+            message: "R2 bucket name:",
+            validate: (input: string) => input.length > 0 || "Bucket name required",
+          },
+          {
+            type: "input",
+            name: "accountId",
+            message: "Cloudflare account ID:",
+            validate: (input: string) => input.length > 0 || "Account ID required",
+          },
+        ]);
+        backendConfig = {
+          bucket: r2Answers.bucket,
+          endpoint: `https://${r2Answers.accountId}.r2.cloudflarestorage.com`,
+          region: "auto",
+        };
+        console.log(
+          chalk.dim("\nNote: Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY with R2 API tokens\n")
+        );
+      } else {
+        // Custom S3-compatible
+        const customAnswers = await inquirer.prompt([
+          {
+            type: "input",
+            name: "bucket",
+            message: "Bucket name:",
+            validate: (input: string) => input.length > 0 || "Bucket name required",
+          },
+          {
+            type: "input",
+            name: "endpoint",
+            message: "S3 endpoint URL:",
+            validate: (input: string) =>
+              input.startsWith("http") || "Endpoint must be a URL",
+          },
+          {
+            type: "input",
+            name: "region",
+            message: "Region (if required):",
+            default: "us-east-1",
+          },
+        ]);
+        backendConfig = customAnswers;
+      }
     }
   }
 
@@ -89,7 +191,7 @@ export async function init(options: InitOptions): Promise<void> {
     if (backend === "git") {
       await initGitBackend(backendConfig.url);
     }
-    // TODO: S3 backend initialization
+    // S3 backends don't need initialization - just config
 
     backendSpinner.succeed(`${backend} backend configured`);
   } catch (error) {

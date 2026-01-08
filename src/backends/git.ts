@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { homedir } from "os";
 import type { Backend, RemoteSession } from "./index.js";
+import { assertEncrypted } from "../crypto/encrypt.js";
 
 const SYNC_DIR = path.join(homedir(), ".claude-sync", "repo");
 
@@ -48,6 +49,9 @@ export function createGitBackend(): Backend {
 
   return {
     async push(sessionId: string, encryptedData: Buffer): Promise<void> {
+      // Verify data is encrypted before writing
+      assertEncrypted(encryptedData, `session ${sessionId}`);
+
       const sessionPath = path.join(SYNC_DIR, "sessions", `${sessionId}.enc`);
 
       // Write encrypted data
@@ -80,6 +84,9 @@ export function createGitBackend(): Backend {
         // Write all files in this batch in parallel
         const results = await Promise.allSettled(
           batch.map(async (session) => {
+            // Verify each session is encrypted before writing
+            assertEncrypted(session.data, `session ${session.id}`);
+
             const sessionPath = path.join(SYNC_DIR, "sessions", `${session.id}.enc`);
             await fs.writeFile(sessionPath, session.data);
             return sessionPath;

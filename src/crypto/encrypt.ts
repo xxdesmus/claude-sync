@@ -4,6 +4,7 @@ import { loadKey } from "./keys.js";
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
+const MIN_ENCRYPTED_SIZE = IV_LENGTH + AUTH_TAG_LENGTH + 1; // At least 1 byte of ciphertext
 
 /**
  * Encrypt data using AES-256-GCM
@@ -89,4 +90,46 @@ export function decryptWithKey(encryptedData: Buffer, key: Buffer): string {
   ]);
 
   return decrypted.toString("utf-8");
+}
+
+/**
+ * Validate that data looks like it was encrypted by us.
+ * Checks minimum size and attempts to verify structure.
+ * This is a safety check to prevent accidentally pushing unencrypted data.
+ */
+export function isEncrypted(data: Buffer): boolean {
+  // Must be at least IV + AuthTag + 1 byte of ciphertext
+  if (data.length < MIN_ENCRYPTED_SIZE) {
+    return false;
+  }
+
+  // Check it's not plain text (JSONL sessions start with '{')
+  // If the first byte is a printable ASCII char that's common in JSON, it's likely not encrypted
+  const firstByte = data[0];
+  const plainTextIndicators = [
+    0x7b, // {
+    0x5b, // [
+    0x22, // "
+    0x23, // #
+  ];
+
+  if (plainTextIndicators.includes(firstByte)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Verify data is encrypted before allowing it to be pushed.
+ * Throws an error if data appears to be unencrypted.
+ */
+export function assertEncrypted(data: Buffer, context?: string): void {
+  if (!isEncrypted(data)) {
+    const ctx = context ? ` (${context})` : "";
+    throw new Error(
+      `Security error: Attempted to push unencrypted data${ctx}. ` +
+        "This is a safety check to prevent accidental exposure of session data."
+    );
+  }
 }
