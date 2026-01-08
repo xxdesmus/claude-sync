@@ -6,12 +6,17 @@
   "bin": {
     "claude-sync": "./dist/cli.js"
   },
+  "main": "./dist/cli.js",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "lint": "eslint src",
-    "test": "vitest"
+    "test": "vitest",
+    "prepublishOnly": "pnpm build"
   },
   "keywords": [
     "claude",
@@ -19,13 +24,20 @@
     "sync",
     "cli",
     "encryption",
-    "privacy"
+    "privacy",
+    "e2e",
+    "backup",
+    "sessions"
   ],
   "author": "kneetworks",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/kneetworks/claude-sync.git"
+  },
+  "homepage": "https://github.com/kneetworks/claude-sync#readme",
+  "bugs": {
+    "url": "https://github.com/kneetworks/claude-sync/issues"
   },
   "engines": {
     "node": ">=18"
@@ -37,8 +49,7 @@
     "glob": "^13.0.0",
     "inquirer": "^9.2.0",
     "ora": "^8.0.0",
-    "simple-git": "^3.22.0",
-    "sodium-native": "^4.0.0"
+    "simple-git": "^3.22.0"
   },
   "devDependencies": {
     "@types/inquirer": "^9.0.9",
