@@ -10,12 +10,13 @@ Claude Code stores conversations locally. When you switch machines, your convers
 
 ## The Solution
 
-`claude-sync` automatically syncs your Claude Code sessions to your own private Git repository (or S3 bucket), encrypted with a key only you control.
+`claude-sync` automatically syncs your Claude Code sessions to your own storage (Git, S3, GCS, R2), encrypted with a key only you control.
 
-- **End-to-end encrypted** - Your data is encrypted before it leaves your machine
-- **Your storage** - Use your own private Git repo or S3 bucket
+- **End-to-end encrypted** - AES-256-GCM encryption before data leaves your machine
+- **Your storage** - Use your own private Git repo, AWS S3, Google Cloud Storage, Cloudflare R2, or any S3-compatible service
 - **Zero trust** - We never see your conversations or encryption keys
 - **Automatic** - Hooks into Claude Code's session lifecycle
+- **Fast** - Parallel encryption and batch uploads
 
 ## Quick Start
 
@@ -23,8 +24,14 @@ Claude Code stores conversations locally. When you switch machines, your convers
 # Install
 npm install -g claude-sync
 
-# Initialize with your private Git repo
+# Initialize with your storage backend
 claude-sync init --git https://github.com/yourusername/claude-sessions-private
+# or
+claude-sync init --s3 my-bucket --region us-west-2
+# or
+claude-sync init --gcs my-gcs-bucket
+# or
+claude-sync init --r2 my-r2-bucket
 
 # Install Claude Code hooks
 claude-sync install --global
@@ -42,14 +49,14 @@ claude-sync install --global
 │       ↓         │         │       ↑         │
 │  Session ends   │         │  Session starts │
 │       ↓         │         │       ↑         │
-│  Encrypt        │         │  Decrypt        │
+│  Encrypt (AES)  │         │  Decrypt        │
 │       ↓         │         │       ↑         │
 └───────┬─────────┘         └───────┴─────────┘
         │                           │
         ↓                           ↑
 ┌─────────────────────────────────────────────┐
-│           Your Private Git Repo              │
-│         (encrypted blobs only)               │
+│         Your Private Storage                 │
+│   (Git / S3 / GCS / R2 - encrypted only)    │
 └─────────────────────────────────────────────┘
 ```
 
@@ -65,7 +72,7 @@ claude-sync install --global
 
 ## Storage Backends
 
-### Git (Recommended)
+### Git
 
 Use any private Git repository. GitHub, GitLab, Bitbucket, or self-hosted.
 
@@ -73,13 +80,39 @@ Use any private Git repository. GitHub, GitLab, Bitbucket, or self-hosted.
 claude-sync init --git https://github.com/yourusername/claude-sessions-private
 ```
 
-### S3 (Coming Soon)
-
-Use any S3-compatible storage: AWS S3, Cloudflare R2, MinIO, etc.
+### AWS S3
 
 ```bash
-claude-sync init --s3 my-claude-sessions-bucket
+claude-sync init --s3 my-bucket --region us-west-2
+
+# Uses AWS credentials from environment or ~/.aws/credentials
 ```
+
+### Google Cloud Storage
+
+```bash
+claude-sync init --gcs my-gcs-bucket
+
+# Uses GOOGLE_APPLICATION_CREDENTIALS or gcloud auth
+```
+
+### Cloudflare R2
+
+```bash
+claude-sync init --r2 my-bucket --endpoint https://ACCOUNT_ID.r2.cloudflarestorage.com
+
+# Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY with R2 API tokens
+```
+
+### Other S3-Compatible (MinIO, etc.)
+
+```bash
+claude-sync init --s3 my-bucket --endpoint https://minio.example.com --region us-east-1
+```
+
+### Interactive Setup
+
+Just run `claude-sync init` without flags for an interactive wizard that guides you through setup.
 
 ## Security
 
@@ -88,11 +121,12 @@ claude-sync init --s3 my-claude-sessions-bucket
 - **Algorithm**: AES-256-GCM (authenticated encryption)
 - **Key**: 256-bit randomly generated, stored locally at `~/.claude-sync/key`
 - **What's encrypted**: Session transcripts (JSONL files)
+- **Validation**: Data is verified as encrypted before every push (prevents accidental plaintext exposure)
 
 ### Your Responsibilities
 
 1. **Back up your key** - Without it, you cannot decrypt your sessions
-2. **Use a private repo** - The encrypted data is safe, but why expose it?
+2. **Use private storage** - The encrypted data is safe, but why expose it?
 3. **Protect your machines** - Anyone with access to `~/.claude-sync/key` can decrypt
 
 ### Key Backup
@@ -132,6 +166,22 @@ chmod 600 ~/.claude-sync/key
 - **SessionEnd**: When you finish a conversation, it's encrypted and pushed
 - **SessionStart**: When you start Claude Code, new sessions are pulled
 
+## Setting Up on a New Machine
+
+1. Install claude-sync: `npm install -g claude-sync`
+2. Initialize with the same backend: `claude-sync init --git <same-repo>`
+3. Copy your encryption key from your other machine:
+   ```bash
+   # On old machine
+   cat ~/.claude-sync/key | base64
+
+   # On new machine
+   echo "BASE64_KEY" | base64 -d > ~/.claude-sync/key
+   chmod 600 ~/.claude-sync/key
+   ```
+4. Pull existing sessions: `claude-sync pull --all`
+5. Install hooks: `claude-sync install --global`
+
 ## Development
 
 ```bash
@@ -151,7 +201,10 @@ node dist/cli.js status
 
 ## Roadmap
 
-- [ ] S3 backend support
+- [x] Git backend
+- [x] S3/GCS/R2 backend support
+- [x] Parallel encryption and batch uploads
+- [x] Encryption validation (prevent plaintext leaks)
 - [ ] Selective sync (by project)
 - [ ] Session search across machines
 - [ ] Team sharing (shared encryption keys)
@@ -159,7 +212,7 @@ node dist/cli.js status
 
 ## Contributing
 
-Contributions welcome! Please read the contributing guidelines first.
+Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ## License
 
