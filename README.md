@@ -25,7 +25,7 @@ Claude Code stores conversations locally. When you switch machines, your convers
 
 ```bash
 # Install
-npm install -g claude-sync
+npm install -g @chronicideas/claude-sync
 
 # Initialize with your storage backend
 claude-sync init --git https://github.com/yourusername/claude-sessions-private
@@ -213,7 +213,7 @@ chmod 600 ~/.claude-sync/key
 
 ## Setting Up on a New Machine
 
-1. Install claude-sync: `npm install -g claude-sync`
+1. Install claude-sync: `npm install -g @chronicideas/claude-sync`
 2. Initialize with the same backend: `claude-sync init --git <same-repo>`
 3. Copy your encryption key from your other machine:
    ```bash
