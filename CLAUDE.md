@@ -131,9 +131,40 @@ Resolution options: `local` (skip), `remote` (overwrite), `both` (save as .confl
 
 Use `--force` flag to skip prompts and always overwrite local.
 
+## Commit Conventions
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) with [Release Please](https://github.com/googleapis/release-please) for automated releases.
+
+| Prefix | Version bump | Use for |
+|--------|--------------|---------|
+| `fix:` | Patch | Bug fixes |
+| `feat:` | Minor | New features |
+| `feat!:` | Major | Breaking changes |
+| `chore:` | None | Maintenance, deps |
+| `docs:` | None | Documentation |
+| `ci:` | None | CI/CD changes |
+| `test:` | None | Test changes |
+
+Example: `feat: add session conflict resolution`
+
 ## Adding a New Backend
 
 1. Create `src/backends/mybackend.ts`
 2. Implement the `Backend` interface
 3. Add to `getBackend()` switch in `src/backends/index.ts`
 4. Add CLI options in `src/commands/init.ts`
+
+## Publishing
+
+Package is published to GitHub Packages (`@xxdesmus/claude-sync`).
+
+**Automated (recommended):**
+1. Push commits with conventional prefixes to `main`
+2. Release Please creates a Release PR
+3. Merge PR → auto-publishes to GitHub Packages
+
+**Manual:**
+```bash
+npm login --registry=https://npm.pkg.github.com
+pnpm build && npm publish
+```

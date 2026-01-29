@@ -373,6 +373,32 @@ pnpm build && pnpm lint && pnpm format:check && pnpm test
 
 The project uses [husky](https://typicode.github.io/husky/) with [lint-staged](https://github.com/lint-staged/lint-staged) to automatically run ESLint and Prettier on staged files before each commit.
 
+### Releases
+
+This project uses [Release Please](https://github.com/googleapis/release-please) for automated releases. Releases are triggered by conventional commit messages:
+
+| Commit prefix | Version bump | Example |
+|---------------|--------------|---------|
+| `fix:` | Patch (0.0.x) | `fix: resolve encryption bug` |
+| `feat:` | Minor (0.x.0) | `feat: add conflict resolution` |
+| `feat!:` or `BREAKING CHANGE:` | Major (x.0.0) | `feat!: change config format` |
+| `chore:`, `docs:`, `ci:` | No release | `docs: update README` |
+
+**Workflow:**
+1. Push commits to `main` with conventional prefixes
+2. Release Please auto-creates a Release PR with changelog
+3. Merge the PR → creates git tag → publishes to GitHub Packages
+
+### Installing from GitHub Packages
+
+```bash
+# Configure npm registry (one-time)
+npm config set @xxdesmus:registry https://npm.pkg.github.com
+
+# Install
+npm install -g @xxdesmus/claude-sync
+```
+
 ## Roadmap
 
 - [x] Git backend
@@ -383,6 +409,7 @@ The project uses [husky](https://typicode.github.io/husky/) with [lint-staged](h
 - [x] Comprehensive test coverage (172 tests)
 - [x] ESLint + Prettier + pre-commit hooks
 - [x] Conflict resolution for concurrent edits
+- [x] Automated releases with Release Please
 - [ ] Selective sync (by project)
 - [ ] Session search across machines
 - [ ] Team sharing (shared encryption keys)
