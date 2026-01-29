@@ -114,18 +114,30 @@ export function isEncrypted(data: Buffer): boolean {
     return false;
   }
 
-  // Check it's not plain text (JSONL sessions start with '{')
-  // If the first byte is a printable ASCII char that's common in JSON, it's likely not encrypted
-  const firstByte = data[0];
-  const plainTextIndicators = [
-    0x7b, // {
-    0x5b, // [
-    0x22, // "
-    0x23, // #
-  ];
+  // Try to detect if this is plaintext JSON/JSONL (common session format)
+  // We check the first few bytes to see if it looks like a JSON structure
+  try {
+    const preview = data
+      .subarray(0, Math.min(100, data.length))
+      .toString("utf-8");
 
-  if (plainTextIndicators.includes(firstByte)) {
-    return false;
+    // If it starts with { or [ and contains valid JSON-like content, it's likely plaintext
+    if (preview.startsWith("{") || preview.startsWith("[")) {
+      // Check if it looks like valid JSON start (has quotes, colons typical of JSON)
+      if (
+        preview.includes('"') &&
+        (preview.includes(":") || preview.includes(","))
+      ) {
+        return false;
+      }
+    }
+
+    // Check for JSONL format (multiple JSON objects separated by newlines)
+    if (preview.startsWith("{") && preview.includes("}\n{")) {
+      return false;
+    }
+  } catch {
+    // If we can't decode as UTF-8, it's likely binary/encrypted data
   }
 
   return true;

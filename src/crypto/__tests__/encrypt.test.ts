@@ -124,24 +124,19 @@ describe("isEncrypted", () => {
     expect(isEncrypted(encrypted)).toBe(true);
   });
 
-  it("returns false for data starting with {", () => {
+  it("returns false for JSON object", () => {
     const json = Buffer.from('{"key": "value"}');
     expect(isEncrypted(json)).toBe(false);
   });
 
-  it("returns false for data starting with [", () => {
-    const json = Buffer.from("[1, 2, 3]");
+  it("returns false for JSON array with objects", () => {
+    const json = Buffer.from('[{"id": 1}, {"id": 2}]');
     expect(isEncrypted(json)).toBe(false);
   });
 
-  it('returns false for data starting with "', () => {
-    const json = Buffer.from('"string"');
-    expect(isEncrypted(json)).toBe(false);
-  });
-
-  it("returns false for data starting with #", () => {
-    const comment = Buffer.from("# Comment");
-    expect(isEncrypted(comment)).toBe(false);
+  it("returns false for JSONL format", () => {
+    const jsonl = Buffer.from('{"type": "message"}\n{"type": "response"}');
+    expect(isEncrypted(jsonl)).toBe(false);
   });
 
   it("returns false for data smaller than minimum encrypted size", () => {
@@ -150,10 +145,19 @@ describe("isEncrypted", () => {
   });
 
   it("returns true for minimum valid encrypted size", () => {
-    // Create a buffer that's exactly minimum size and doesn't start with plaintext indicators
+    // Create a buffer that's exactly minimum size with binary data
     const minSize = Buffer.alloc(29);
-    minSize[0] = 0x80; // Non-ASCII, non-plaintext indicator
+    minSize[0] = 0x80; // Non-ASCII byte
     expect(isEncrypted(minSize)).toBe(true);
+  });
+
+  it("returns true for binary data that happens to start with {", () => {
+    // Edge case: binary data starting with { but not valid JSON
+    const binaryWithBrace = Buffer.alloc(50);
+    binaryWithBrace[0] = 0x7b; // {
+    binaryWithBrace[1] = 0xff; // Invalid UTF-8 continuation
+    binaryWithBrace[2] = 0x00; // Null byte
+    expect(isEncrypted(binaryWithBrace)).toBe(true);
   });
 });
 
