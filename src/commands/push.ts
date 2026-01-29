@@ -1,108 +1,215 @@
 import ora from "ora";
 import chalk from "chalk";
-import { findSessions, readSession } from "../utils/sessions.js";
 import { encrypt } from "../crypto/encrypt.js";
 import { getBackend } from "../backends/index.js";
 import { loadConfig } from "../utils/config.js";
+import {
+  getResourceHandler,
+  ALL_RESOURCE_TYPES,
+  RESOURCE_CONFIGS,
+  type ResourceType,
+  type ResourceItem,
+} from "../resources/index.js";
 
 const ENCRYPT_BATCH_SIZE = 20; // Parallel encryption batch size
 
 interface PushOptions {
+  type?: ResourceType;
   session?: string;
   file?: string;
   all?: boolean;
+  dryRun?: boolean;
 }
 
 export async function push(options: PushOptions): Promise<void> {
   const config = await loadConfig();
 
-  if (!config?.initialized) {
+  // For dry-run, we only need to show local resources - no backend required
+  if (!options.dryRun && !config?.initialized) {
     console.log(
       chalk.red("Error: claude-sync not initialized. Run `claude-sync init` first.")
     );
     process.exit(1);
   }
 
-  const backend = await getBackend(config);
-  let sessions: Array<{ id: string; path: string }>;
+  if (options.dryRun) {
+    console.log(chalk.bold("\nDry Run - Preview of resources to push:\n"));
+  }
+
+  const backend = options.dryRun ? null : await getBackend(config!);
+
+  // Determine which types to push
+  const typesToPush: ResourceType[] = options.type
+    ? [options.type]
+    : options.all
+    ? ALL_RESOURCE_TYPES
+    : ["sessions"]; // Default to sessions for backwards compatibility
+
+  // Handle legacy session-specific options
+  if (options.session || options.file) {
+    if (options.type && options.type !== "sessions") {
+      console.log(
+        chalk.red("Error: --session and --file options are only valid for sessions type")
+      );
+      process.exit(1);
+    }
+    await pushSpecificSession(options, backend);
+    return;
+  }
+
+  // Push each resource type
+  for (const resourceType of typesToPush) {
+    await pushResourceType(resourceType, options, backend);
+  }
+
+  if (options.dryRun) {
+    console.log(chalk.dim("\nRun without --dry-run to actually push these resources."));
+  }
+}
+
+async function pushSpecificSession(
+  options: PushOptions,
+  backend: Awaited<ReturnType<typeof getBackend>> | null
+): Promise<void> {
+  const handler = getResourceHandler("sessions");
+
+  let resources: ResourceItem[];
 
   if (options.file) {
     // Push specific file (used by hooks)
-    sessions = [{ id: options.session || "unknown", path: options.file }];
+    resources = [{ id: options.session || "unknown", path: options.file }];
   } else if (options.session) {
     // Push specific session by ID
-    const allSessions = await findSessions();
-    const session = allSessions.find((s) => s.id === options.session);
-    if (!session) {
+    const allResources = await handler.findLocal();
+    const resource = allResources.find((r) => r.id === options.session);
+    if (!resource) {
       console.log(chalk.red(`Session ${options.session} not found`));
       process.exit(1);
     }
-    sessions = [session];
-  } else if (options.all) {
-    // Push all sessions
-    sessions = await findSessions();
+    resources = [resource];
   } else {
-    // Default: push sessions modified since last sync
-    sessions = await findSessions({ modifiedSinceLastSync: true });
-  }
-
-  if (sessions.length === 0) {
-    console.log(chalk.dim("No sessions to push"));
     return;
   }
 
-  // For single session, use simple push
-  if (sessions.length === 1) {
-    const spinner = ora("Pushing session...").start();
-    try {
-      const data = await readSession(sessions[0].path);
-      const encrypted = await encrypt(data);
-      await backend.push(sessions[0].id, encrypted);
-      spinner.succeed("Pushed 1 session");
-    } catch (error) {
-      spinner.fail(`Failed to push session: ${error}`);
+  if (options.dryRun) {
+    console.log(chalk.cyan("Sessions:"));
+    for (const resource of resources) {
+      console.log(`  ${chalk.green("+")} ${resource.id}`);
+      if (resource.path) {
+        console.log(chalk.dim(`      ${resource.path}`));
+      }
     }
     return;
   }
 
-  // For multiple sessions, use batch mode
-  const spinner = ora(`Encrypting ${sessions.length} sessions...`).start();
+  const spinner = ora("Pushing session...").start();
+  try {
+    const data = await handler.read(resources[0]);
+    const encrypted = await encrypt(data.toString("utf-8"));
+    await backend!.pushResource("sessions", resources[0].id, encrypted, resources[0].metadata);
+    spinner.succeed("Pushed 1 session");
+  } catch (error) {
+    spinner.fail(`Failed to push session: ${error}`);
+  }
+}
 
-  // Step 1: Read and encrypt all sessions in parallel batches
-  const encryptedSessions: Array<{ id: string; data: Buffer }> = [];
+async function pushResourceType(
+  type: ResourceType,
+  options: PushOptions,
+  backend: Awaited<ReturnType<typeof getBackend>> | null
+): Promise<void> {
+  const handler = getResourceHandler(type);
+  const typeConfig = RESOURCE_CONFIGS[type];
+
+  // Find resources to push
+  const resources = options.all
+    ? await handler.findLocal()
+    : await handler.findLocal({ modifiedSinceLastSync: true });
+
+  if (resources.length === 0) {
+    if (options.dryRun) {
+      console.log(chalk.cyan(`${typeConfig.displayName}:`));
+      console.log(chalk.dim("  No resources to push"));
+      console.log();
+    } else {
+      console.log(chalk.dim(`No ${typeConfig.displayName.toLowerCase()} to push`));
+    }
+    return;
+  }
+
+  // Dry run mode - just show what would be pushed
+  if (options.dryRun) {
+    console.log(chalk.cyan(`${typeConfig.displayName}:`));
+    console.log(`  ${resources.length} resource(s) would be pushed:\n`);
+    for (const resource of resources) {
+      console.log(`  ${chalk.green("+")} ${resource.id}`);
+      if (resource.path) {
+        console.log(chalk.dim(`      ${resource.path}`));
+      }
+      if (resource.metadata && Object.keys(resource.metadata).length > 0) {
+        const metaStr = Object.entries(resource.metadata)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(", ");
+        console.log(chalk.dim(`      metadata: ${metaStr}`));
+      }
+    }
+    console.log();
+    return;
+  }
+
+  // For single resource, use simple push
+  if (resources.length === 1) {
+    const spinner = ora(`Pushing ${typeConfig.displayName.toLowerCase()}...`).start();
+    try {
+      const data = await handler.read(resources[0]);
+      const encrypted = await encrypt(data.toString("utf-8"));
+      await backend!.pushResource(type, resources[0].id, encrypted, resources[0].metadata);
+      spinner.succeed(`Pushed 1 ${typeConfig.displayName.toLowerCase().replace(/s$/, "")}`);
+    } catch (error) {
+      spinner.fail(`Failed to push ${typeConfig.displayName.toLowerCase()}: ${error}`);
+    }
+    return;
+  }
+
+  // For multiple resources, use batch mode
+  const spinner = ora(`Encrypting ${resources.length} ${typeConfig.displayName.toLowerCase()}...`).start();
+
+  // Step 1: Read and encrypt all resources in parallel batches
+  const encryptedResources: Array<{ id: string; data: Buffer; metadata?: Record<string, unknown> }> = [];
   let encryptFailed = 0;
 
-  for (let i = 0; i < sessions.length; i += ENCRYPT_BATCH_SIZE) {
-    const batch = sessions.slice(i, i + ENCRYPT_BATCH_SIZE);
+  for (let i = 0; i < resources.length; i += ENCRYPT_BATCH_SIZE) {
+    const batch = resources.slice(i, i + ENCRYPT_BATCH_SIZE);
 
     const results = await Promise.allSettled(
-      batch.map(async (session) => {
-        const data = await readSession(session.path);
-        const encrypted = await encrypt(data);
-        return { id: session.id, data: encrypted };
+      batch.map(async (resource) => {
+        const data = await handler.read(resource);
+        const encrypted = await encrypt(data.toString("utf-8"));
+        return { id: resource.id, data: encrypted, metadata: resource.metadata };
       })
     );
 
     for (const result of results) {
       if (result.status === "fulfilled") {
-        encryptedSessions.push(result.value);
+        encryptedResources.push(result.value);
       } else {
         encryptFailed++;
       }
     }
 
-    spinner.text = `Encrypting... ${encryptedSessions.length + encryptFailed}/${sessions.length}`;
+    spinner.text = `Encrypting... ${encryptedResources.length + encryptFailed}/${resources.length}`;
   }
 
   if (encryptFailed > 0) {
-    spinner.text = `Encrypted ${encryptedSessions.length} sessions (${encryptFailed} failed)`;
+    spinner.text = `Encrypted ${encryptedResources.length} ${typeConfig.displayName.toLowerCase()} (${encryptFailed} failed)`;
   }
 
-  // Step 2: Push all encrypted sessions in batch (single commit + push)
-  spinner.text = `Writing ${encryptedSessions.length} sessions...`;
+  // Step 2: Push all encrypted resources in batch
+  spinner.text = `Writing ${encryptedResources.length} ${typeConfig.displayName.toLowerCase()}...`;
 
-  const { pushed, failed } = await backend.pushBatch(
-    encryptedSessions,
+  const { pushed, failed } = await backend!.pushResourceBatch(
+    type,
+    encryptedResources,
     (done, total) => {
       spinner.text = `Writing... ${done}/${total}`;
     }
@@ -111,8 +218,8 @@ export async function push(options: PushOptions): Promise<void> {
   const totalFailed = failed + encryptFailed;
 
   if (totalFailed > 0) {
-    spinner.warn(`Pushed ${pushed} sessions, ${totalFailed} failed`);
+    spinner.warn(`Pushed ${pushed} ${typeConfig.displayName.toLowerCase()}, ${totalFailed} failed`);
   } else {
-    spinner.succeed(`Pushed ${pushed} session(s)`);
+    spinner.succeed(`Pushed ${pushed} ${typeConfig.displayName.toLowerCase()}`);
   }
 }

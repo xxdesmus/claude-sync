@@ -1,10 +1,14 @@
 import chalk from "chalk";
 import { loadConfig } from "../utils/config.js";
-import { findSessions } from "../utils/sessions.js";
 import { keyExists } from "../crypto/keys.js";
+import {
+  getResourceHandler,
+  ALL_RESOURCE_TYPES,
+  RESOURCE_CONFIGS,
+} from "../resources/index.js";
 
 export async function status(): Promise<void> {
-  console.log(chalk.bold("\n🔄 Claude Sync Status\n"));
+  console.log(chalk.bold("\nClaude Sync Status\n"));
 
   // Check initialization
   const config = await loadConfig();
@@ -35,22 +39,30 @@ export async function status(): Promise<void> {
   console.log(chalk.bold("Encryption:"));
   const hasKey = await keyExists();
   if (hasKey) {
-    console.log(chalk.green("  ✓ Key configured"));
+    console.log(chalk.green("  Key configured"));
   } else {
-    console.log(chalk.red("  ✗ No key found"));
+    console.log(chalk.red("  No key found"));
   }
   console.log();
 
-  // Session counts
-  console.log(chalk.bold("Sessions:"));
-  try {
-    const allSessions = await findSessions();
-    const pendingSessions = await findSessions({ modifiedSinceLastSync: true });
+  // Resource counts
+  console.log(chalk.bold("Resources:"));
 
-    console.log(`  Local sessions: ${allSessions.length}`);
-    console.log(`  Pending sync: ${pendingSessions.length}`);
-  } catch {
-    console.log(chalk.dim("  Unable to read sessions"));
+  for (const type of ALL_RESOURCE_TYPES) {
+    const handler = getResourceHandler(type);
+    const typeConfig = RESOURCE_CONFIGS[type];
+
+    try {
+      const allResources = await handler.findLocal();
+      const pendingResources = await handler.findLocal({ modifiedSinceLastSync: true });
+
+      console.log(`  ${typeConfig.displayName}:`);
+      console.log(`    Local: ${allResources.length}`);
+      console.log(`    Pending sync: ${pendingResources.length}`);
+    } catch {
+      console.log(`  ${typeConfig.displayName}:`);
+      console.log(chalk.dim(`    Unable to read`));
+    }
   }
   console.log();
 

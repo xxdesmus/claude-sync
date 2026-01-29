@@ -2,7 +2,10 @@ import simpleGit, { SimpleGit } from "simple-git";
 import fs from "fs/promises";
 import path from "path";
 import { homedir } from "os";
+import { glob } from "glob";
 import type { Backend, RemoteSession } from "./index.js";
+import type { ResourceType, RemoteResource } from "../resources/types.js";
+import { RESOURCE_CONFIGS } from "../resources/index.js";
 import { assertEncrypted } from "../crypto/encrypt.js";
 
 const SYNC_DIR = path.join(homedir(), ".claude-sync", "repo");
@@ -38,28 +41,85 @@ export async function initGitBackend(url: string): Promise<void> {
     }
   }
 
-  // Create sessions directory
+  // Create directories for all resource types
   await fs.mkdir(path.join(SYNC_DIR, "sessions"), { recursive: true });
+  await fs.mkdir(path.join(SYNC_DIR, "agents"), { recursive: true });
+  await fs.mkdir(path.join(SYNC_DIR, "settings"), { recursive: true });
 }
 
 const BATCH_SIZE = 50; // Write files in parallel batches
+
+/**
+ * Get the storage path for a resource
+ */
+function getResourcePath(type: ResourceType, id: string): string {
+  const config = RESOURCE_CONFIGS[type];
+  const safeId = id.replace(/\//g, "_");
+  return path.join(SYNC_DIR, config.storagePrefix, `${safeId}.enc`);
+}
+
+/**
+ * Parse a resource ID from a storage filename
+ */
+function parseResourceId(filename: string): string {
+  // Remove .enc extension and convert _ back to /
+  return filename.replace(".enc", "").replace(/_/g, "/");
+}
 
 export function createGitBackend(): Backend {
   const git: SimpleGit = simpleGit(SYNC_DIR);
 
   return {
+    // Legacy session-only methods (for backwards compatibility)
     async push(sessionId: string, encryptedData: Buffer): Promise<void> {
-      // Verify data is encrypted before writing
-      assertEncrypted(encryptedData, `session ${sessionId}`);
+      return this.pushResource("sessions", sessionId, encryptedData);
+    },
 
-      const sessionPath = path.join(SYNC_DIR, "sessions", `${sessionId}.enc`);
+    async pushBatch(
+      sessions: Array<{ id: string; data: Buffer }>,
+      onProgress?: (done: number, total: number) => void
+    ): Promise<{ pushed: number; failed: number }> {
+      return this.pushResourceBatch("sessions", sessions, onProgress);
+    },
+
+    async pull(sessionId: string): Promise<Buffer> {
+      return this.pullResource("sessions", sessionId);
+    },
+
+    async list(): Promise<RemoteSession[]> {
+      const resources = await this.listResources("sessions");
+      return resources.map((r) => ({
+        id: r.id,
+        project: (r.metadata?.project as string) || "unknown",
+        existsLocally: r.existsLocally,
+      }));
+    },
+
+    async delete(sessionId: string): Promise<void> {
+      return this.deleteResource("sessions", sessionId);
+    },
+
+    // Resource-aware methods
+    async pushResource(
+      type: ResourceType,
+      id: string,
+      encryptedData: Buffer,
+      _metadata?: Record<string, unknown>
+    ): Promise<void> {
+      // Verify data is encrypted before writing
+      assertEncrypted(encryptedData, `${type} ${id}`);
+
+      const resourcePath = getResourcePath(type, id);
+
+      // Ensure directory exists
+      await fs.mkdir(path.dirname(resourcePath), { recursive: true });
 
       // Write encrypted data
-      await fs.writeFile(sessionPath, encryptedData);
+      await fs.writeFile(resourcePath, encryptedData);
 
       // Commit and push
-      await git.add(sessionPath);
-      await git.commit(`sync: ${sessionId}`, { "--allow-empty": null });
+      await git.add(resourcePath);
+      await git.commit(`sync ${type}: ${id}`, { "--allow-empty": null });
 
       try {
         await git.push("origin", "main");
@@ -69,27 +129,35 @@ export function createGitBackend(): Backend {
       }
     },
 
-    async pushBatch(
-      sessions: Array<{ id: string; data: Buffer }>,
+    async pushResourceBatch(
+      type: ResourceType,
+      resources: Array<{ id: string; data: Buffer; metadata?: Record<string, unknown> }>,
       onProgress?: (done: number, total: number) => void
     ): Promise<{ pushed: number; failed: number }> {
-      const total = sessions.length;
+      const total = resources.length;
       let pushed = 0;
       let failed = 0;
 
+      const config = RESOURCE_CONFIGS[type];
+      const typeDir = path.join(SYNC_DIR, config.storagePrefix);
+
+      // Ensure directory exists
+      await fs.mkdir(typeDir, { recursive: true });
+
       // Process in batches for parallel file writes
-      for (let i = 0; i < sessions.length; i += BATCH_SIZE) {
-        const batch = sessions.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < resources.length; i += BATCH_SIZE) {
+        const batch = resources.slice(i, i + BATCH_SIZE);
 
         // Write all files in this batch in parallel
         const results = await Promise.allSettled(
-          batch.map(async (session) => {
-            // Verify each session is encrypted before writing
-            assertEncrypted(session.data, `session ${session.id}`);
+          batch.map(async (resource) => {
+            // Verify each resource is encrypted before writing
+            assertEncrypted(resource.data, `${type} ${resource.id}`);
 
-            const sessionPath = path.join(SYNC_DIR, "sessions", `${session.id}.enc`);
-            await fs.writeFile(sessionPath, session.data);
-            return sessionPath;
+            const resourcePath = getResourcePath(type, resource.id);
+            await fs.mkdir(path.dirname(resourcePath), { recursive: true });
+            await fs.writeFile(resourcePath, resource.data);
+            return resourcePath;
           })
         );
 
@@ -105,11 +173,11 @@ export function createGitBackend(): Backend {
         onProgress?.(pushed + failed, total);
       }
 
-      // Single git add for all files
-      await git.add(path.join(SYNC_DIR, "sessions", "*.enc"));
+      // Single git add for all files in this type's directory
+      await git.add(path.join(typeDir, "*.enc"));
 
       // Single commit
-      await git.commit(`sync: ${pushed} sessions`, { "--allow-empty": null });
+      await git.commit(`sync: ${pushed} ${type}`, { "--allow-empty": null });
 
       // Single push
       try {
@@ -121,42 +189,48 @@ export function createGitBackend(): Backend {
       return { pushed, failed };
     },
 
-    async pull(sessionId: string): Promise<Buffer> {
+    async pullResource(type: ResourceType, id: string): Promise<Buffer> {
       // Pull latest
       await git.pull("origin", "main").catch(() => {
         // Might fail if nothing to pull
       });
 
-      const sessionPath = path.join(SYNC_DIR, "sessions", `${sessionId}.enc`);
-      return fs.readFile(sessionPath);
+      const resourcePath = getResourcePath(type, id);
+      return fs.readFile(resourcePath);
     },
 
-    async list(): Promise<RemoteSession[]> {
+    async listResources(type: ResourceType): Promise<RemoteResource[]> {
       // Pull latest
       await git.pull("origin", "main").catch(() => {});
 
-      const sessionsDir = path.join(SYNC_DIR, "sessions");
+      const config = RESOURCE_CONFIGS[type];
+      const typeDir = path.join(SYNC_DIR, config.storagePrefix);
 
       try {
-        const files = await fs.readdir(sessionsDir);
-        return files
-          .filter((f) => f.endsWith(".enc"))
-          .map((f) => ({
-            id: f.replace(".enc", ""),
-            project: "unknown", // TODO: Store project metadata
-            existsLocally: false, // TODO: Check local sessions
-          }));
+        // Use glob to find all .enc files, including nested ones
+        const pattern = path.join(typeDir, "**", "*.enc");
+        const files = await glob(pattern);
+
+        return files.map((f) => {
+          const relativePath = path.relative(typeDir, f);
+          const id = parseResourceId(relativePath);
+          return {
+            id,
+            type,
+            existsLocally: false, // TODO: Check against local resources
+          };
+        });
       } catch {
         return [];
       }
     },
 
-    async delete(sessionId: string): Promise<void> {
-      const sessionPath = path.join(SYNC_DIR, "sessions", `${sessionId}.enc`);
+    async deleteResource(type: ResourceType, id: string): Promise<void> {
+      const resourcePath = getResourcePath(type, id);
 
-      await fs.unlink(sessionPath).catch(() => {});
-      await git.add(sessionPath);
-      await git.commit(`delete: ${sessionId}`);
+      await fs.unlink(resourcePath).catch(() => {});
+      await git.add(resourcePath);
+      await git.commit(`delete ${type}: ${id}`);
       await git.push("origin", "main");
     },
   };
