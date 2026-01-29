@@ -72,6 +72,10 @@ program
     "Pull all resources (of the specified type, or all types if no type specified)"
   )
   .option("--dry-run", "Preview what would be pulled without actually pulling")
+  .option(
+    "--force",
+    "Skip conflict prompts and always overwrite local with remote"
+  )
   .action((type, options) => {
     // Validate type if provided
     if (type && !isValidResourceType(type)) {

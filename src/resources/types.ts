@@ -91,6 +91,15 @@ export interface ResourceHandler {
    * Merge local and remote content (only for merge strategy)
    */
   merge?(local: Buffer, remote: Buffer): Promise<Buffer>;
+
+  /**
+   * Get the path for storing a conflicting version of a resource.
+   * Used when keeping both local and remote during conflict resolution.
+   */
+  getConflictPath?(
+    id: string,
+    metadata?: Record<string, unknown>
+  ): Promise<string>;
 }
 
 /**

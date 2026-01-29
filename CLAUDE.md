@@ -11,7 +11,7 @@ pnpm build          # Build TypeScript
 pnpm dev            # Watch mode
 
 # Testing
-pnpm test                        # Run all tests (146 tests)
+pnpm test                        # Run all tests (172 tests)
 pnpm test src/commands/          # Run tests in a directory
 pnpm test src/crypto/__tests__/encrypt.test.ts  # Run single test file
 
@@ -52,10 +52,11 @@ src/
 │       ├── agents.ts      # Agent definitions (full replace)
 │       └── settings.ts    # Settings (deep merge strategy)
 ├── crypto/                # Encryption (AES-256-GCM)
-│   ├── encrypt.ts         # encrypt(), decrypt(), assertEncrypted()
+│   ├── encrypt.ts         # encrypt(), decrypt(), assertEncrypted(), hashContent()
 │   └── keys.ts            # Key generation & loading
 └── utils/
     ├── config.ts          # ~/.claude-sync/config.json management
+    ├── syncState.ts       # Sync state tracking (~/.claude-sync/sync-state.json)
     └── sessions.ts        # Session file discovery
 ```
 
@@ -63,6 +64,7 @@ src/
 
 1. **Push**: `findLocal()` → `read()` → `encrypt()` → `backend.pushResource()`
 2. **Pull**: `backend.listResources()` → `backend.pullResource()` → `decrypt()` → `handler.write()`
+3. **Pull with conflict detection** (when `--all`): Compare local/remote hashes → prompt resolution → write or skip
 
 ### Resource System
 
@@ -113,6 +115,21 @@ if (!config?.initialized) {
 2. **Session data** - May contain sensitive code, always encrypt before storage
 3. **Git backend** - Use private repos only
 4. **assertEncrypted()** - Called before every push to prevent plaintext leaks
+
+## Conflict Resolution
+
+The pull command detects conflicts when:
+- Using `--all` flag (syncing existing resources)
+- Local and remote content have different SHA-256 hashes
+
+Key components:
+- `hashContent()` in `src/crypto/encrypt.ts` - SHA-256 content hashing
+- `src/utils/syncState.ts` - Tracks synced content hashes
+- `getConflictPath()` in resource handlers - Returns `.conflict.jsonl` path
+
+Resolution options: `local` (skip), `remote` (overwrite), `both` (save as .conflict file)
+
+Use `--force` flag to skip prompts and always overwrite local.
 
 ## Adding a New Backend
 

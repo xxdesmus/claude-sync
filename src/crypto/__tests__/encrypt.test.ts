@@ -5,6 +5,7 @@ import {
   decryptWithKey,
   isEncrypted,
   assertEncrypted,
+  hashContent,
 } from "../encrypt.js";
 
 describe("encrypt/decrypt", () => {
@@ -209,5 +210,51 @@ describe("encryption security properties", () => {
     const encrypted = encryptWithKey("", testKey);
     const decrypted = decryptWithKey(encrypted, testKey);
     expect(decrypted).toBe("");
+  });
+});
+
+describe("hashContent", () => {
+  it("returns SHA-256 hash as hex string", () => {
+    const data = Buffer.from("test data");
+    const hash = hashContent(data);
+
+    // SHA-256 produces 64 hex characters
+    expect(hash).toHaveLength(64);
+    expect(hash).toMatch(/^[a-f0-9]+$/);
+  });
+
+  it("produces consistent hash for same content", () => {
+    const data = Buffer.from("test data");
+    const hash1 = hashContent(data);
+    const hash2 = hashContent(data);
+
+    expect(hash1).toBe(hash2);
+  });
+
+  it("produces different hash for different content", () => {
+    const data1 = Buffer.from("test data 1");
+    const data2 = Buffer.from("test data 2");
+
+    const hash1 = hashContent(data1);
+    const hash2 = hashContent(data2);
+
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it("works with empty buffer", () => {
+    const data = Buffer.from("");
+    const hash = hashContent(data);
+
+    // SHA-256 of empty string is a known value
+    expect(hash).toBe(
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
+  });
+
+  it("works with large data", () => {
+    const data = Buffer.alloc(1000000, "x"); // 1MB of 'x'
+    const hash = hashContent(data);
+
+    expect(hash).toHaveLength(64);
   });
 });

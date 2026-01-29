@@ -1,4 +1,9 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+  createHash,
+} from "crypto";
 import { loadKey } from "./keys.js";
 
 const ALGORITHM = "aes-256-gcm";
@@ -138,4 +143,12 @@ export function assertEncrypted(data: Buffer, context?: string): void {
         "This is a safety check to prevent accidental exposure of session data."
     );
   }
+}
+
+/**
+ * Compute SHA-256 hash of content for comparison.
+ * Used for conflict detection between local and remote resources.
+ */
+export function hashContent(data: Buffer): string {
+  return createHash("sha256").update(data).digest("hex");
 }

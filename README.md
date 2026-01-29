@@ -71,6 +71,7 @@ claude-sync install --global
 | `claude-sync install` | Add hooks to Claude Code for automatic sync |
 | `claude-sync push` | Manually push sessions to remote |
 | `claude-sync pull` | Manually pull sessions from remote |
+| `claude-sync pull --force` | Pull and overwrite local without conflict prompts |
 | `claude-sync status` | Show configuration and sync status |
 
 ## Storage Backends
@@ -211,6 +212,36 @@ chmod 600 ~/.claude-sync/key
 - **SessionEnd**: When you finish a conversation, it's encrypted and pushed
 - **SessionStart**: When you start Claude Code, new sessions are pulled
 
+## Conflict Resolution
+
+When pulling sessions that exist both locally and remotely with different content, `claude-sync` detects conflicts and prompts you to choose:
+
+```
+$ claude-sync pull --all
+
+⚠️  1 conflict(s) detected for sessions
+
+Conflict: session-abc123
+  Local modified: 2024-01-15T10:30:00.000Z
+  Path: ~/.claude/projects/myproject/session-abc123.jsonl
+
+? How do you want to resolve this conflict?
+  ❯ Keep local (skip remote)
+    Keep remote (overwrite local)
+    Keep both (save remote as .conflict file)
+```
+
+**Resolution options:**
+- **Keep local** - Skip the remote version, keep your local changes
+- **Keep remote** - Overwrite local with the remote version
+- **Keep both** - Save remote as `<session-id>.conflict.jsonl` for manual review
+
+**Force mode:** Use `--force` to skip prompts and always overwrite local with remote:
+
+```bash
+claude-sync pull --all --force
+```
+
 ## Setting Up on a New Machine
 
 1. Install claude-sync: `npm install -g @chronicideas/claude-sync`
@@ -251,14 +282,16 @@ claude-sync/
 │   │       ├── agents.ts      # Custom agent definitions
 │   │       └── settings.ts    # Claude Code settings (merge strategy)
 │   ├── crypto/                # Encryption module
-│   │   ├── encrypt.ts         # AES-256-GCM encrypt/decrypt
+│   │   ├── encrypt.ts         # AES-256-GCM encrypt/decrypt + hashContent
 │   │   └── keys.ts            # Key generation & loading
 │   └── utils/                 # Shared utilities
 │       ├── config.ts          # Config file management
+│       ├── syncState.ts       # Sync state tracking for conflict detection
 │       └── sessions.ts        # Session discovery
 └── ~/.claude-sync/            # User data directory
     ├── config.json            # Backend configuration
     ├── key                    # 256-bit encryption key
+    ├── sync-state.json        # Content hashes for conflict detection
     └── repo/                  # Git backend local clone
 ```
 
@@ -310,7 +343,7 @@ node dist/cli.js status
 ### Code Quality
 
 ```bash
-# Run tests (146 tests)
+# Run tests (172 tests)
 pnpm test
 
 # Run tests with coverage
@@ -340,12 +373,12 @@ The project uses [husky](https://typicode.github.io/husky/) with [lint-staged](h
 - [x] Parallel encryption and batch uploads
 - [x] Encryption validation (prevent plaintext leaks)
 - [x] Generic resource sync (sessions, agents, settings)
-- [x] Comprehensive test coverage (146 tests)
+- [x] Comprehensive test coverage (172 tests)
 - [x] ESLint + Prettier + pre-commit hooks
+- [x] Conflict resolution for concurrent edits
 - [ ] Selective sync (by project)
 - [ ] Session search across machines
 - [ ] Team sharing (shared encryption keys)
-- [ ] Conflict resolution for concurrent edits
 
 ## Contributing
 

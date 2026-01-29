@@ -87,5 +87,15 @@ export function createSessionsHandler(): ResourceHandler {
       await fs.mkdir(projectDir, { recursive: true });
       return path.join(projectDir, `${id}.jsonl`);
     },
+
+    async getConflictPath(
+      id: string,
+      metadata?: Record<string, unknown>
+    ): Promise<string> {
+      const project = (metadata?.project as string) || "unknown";
+      const projectDir = path.join(PROJECTS_DIR, project);
+      await fs.mkdir(projectDir, { recursive: true });
+      return path.join(projectDir, `${id}.conflict.jsonl`);
+    },
   };
 }

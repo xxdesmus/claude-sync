@@ -4,6 +4,7 @@ import { pull } from "../pull.js";
 // Mock dependencies
 vi.mock("../../crypto/encrypt.js", () => ({
   decrypt: vi.fn().mockResolvedValue("decrypted-content"),
+  hashContent: vi.fn().mockReturnValue("mock-hash"),
 }));
 
 vi.mock("../../backends/index.js", () => ({
@@ -12,6 +13,10 @@ vi.mock("../../backends/index.js", () => ({
 
 vi.mock("../../utils/config.js", () => ({
   loadConfig: vi.fn(),
+}));
+
+vi.mock("../../utils/syncState.js", () => ({
+  updateResourceHashBatch: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../resources/index.js", () => ({
@@ -49,6 +54,7 @@ vi.mock("ora", () => ({
     succeed: vi.fn().mockReturnThis(),
     fail: vi.fn().mockReturnThis(),
     warn: vi.fn().mockReturnThis(),
+    stop: vi.fn().mockReturnThis(),
     text: "",
   })),
 }));
@@ -65,10 +71,27 @@ vi.mock("chalk", () => ({
   },
 }));
 
+// Mock inquirer
+vi.mock("inquirer", () => ({
+  default: {
+    prompt: vi.fn(),
+  },
+}));
+
+// Mock fs/promises
+vi.mock("fs/promises", () => ({
+  default: {
+    writeFile: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 import { loadConfig } from "../../utils/config.js";
 import { getBackend } from "../../backends/index.js";
 import { getResourceHandler } from "../../resources/index.js";
-import { decrypt } from "../../crypto/encrypt.js";
+import { decrypt, hashContent } from "../../crypto/encrypt.js";
+import { updateResourceHashBatch } from "../../utils/syncState.js";
+import inquirer from "inquirer";
+import fs from "fs/promises";
 
 describe("pull command", () => {
   const mockBackend = {
@@ -96,6 +119,9 @@ describe("pull command", () => {
     read: vi.fn().mockResolvedValue(Buffer.from("local-content")),
     write: vi.fn().mockResolvedValue("/path/to/session"),
     getLocalPath: vi.fn().mockResolvedValue("/path/to/session"),
+    getConflictPath: vi
+      .fn()
+      .mockResolvedValue("/path/to/session.conflict.jsonl"),
     merge: vi.fn().mockResolvedValue(Buffer.from("merged-content")),
   };
 
@@ -206,6 +232,22 @@ describe("pull command", () => {
       expect(mockResourceHandler.write).toHaveBeenCalled();
     });
 
+    it("updates sync state when pulling specific session", async () => {
+      mockBackend.listResources.mockResolvedValue([
+        { id: "session-123", type: "sessions" as const, existsLocally: false },
+      ]);
+
+      await pull({ session: "session-123" });
+
+      expect(updateResourceHashBatch).toHaveBeenCalledWith([
+        expect.objectContaining({
+          type: "sessions",
+          id: "session-123",
+          hash: expect.any(String),
+        }),
+      ]);
+    });
+
     it("exits with error when specific session not found on remote", async () => {
       mockBackend.listResources.mockResolvedValue([
         {
@@ -254,21 +296,16 @@ describe("pull command", () => {
       );
     });
 
-    it("pulls all resources when --all flag is set with specific type", async () => {
+    it("updates sync state after pulling resources", async () => {
       const remoteResources = [
         { id: "session-1", type: "sessions" as const, existsLocally: false },
-        { id: "session-2", type: "sessions" as const, existsLocally: false },
       ];
       mockBackend.listResources.mockResolvedValue(remoteResources);
-      mockResourceHandler.findLocal.mockResolvedValue([
-        { id: "session-1", path: "/path/1" },
-      ]);
+      mockResourceHandler.findLocal.mockResolvedValue([]);
 
-      // Using type: "sessions" to only pull sessions, not all resource types
-      await pull({ all: true, type: "sessions" });
+      await pull({});
 
-      // Should pull both sessions (all overrides the "only new" logic)
-      expect(mockBackend.pullResource).toHaveBeenCalledTimes(2);
+      expect(updateResourceHashBatch).toHaveBeenCalled();
     });
 
     it("writes decrypted content to local", async () => {
@@ -421,6 +458,190 @@ describe("pull command", () => {
       mockBackend.listResources.mockRejectedValue(new Error("Network error"));
 
       await expect(pull({})).rejects.toThrow("process.exit called");
+    });
+  });
+
+  describe("conflict detection", () => {
+    it("detects conflicts when local and remote content differ", async () => {
+      const remoteResources = [
+        { id: "session-1", type: "sessions" as const, existsLocally: false },
+      ];
+      mockBackend.listResources.mockResolvedValue(remoteResources);
+      mockResourceHandler.findLocal.mockResolvedValue([
+        {
+          id: "session-1",
+          path: "/path/session-1.jsonl",
+          modifiedAt: new Date(),
+        },
+      ]);
+
+      // Mock different hashes for local and remote
+      vi.mocked(hashContent)
+        .mockReturnValueOnce("local-hash")
+        .mockReturnValueOnce("remote-hash");
+
+      // Mock user choosing to keep local
+      vi.mocked(inquirer.prompt).mockResolvedValue({ resolution: "local" });
+
+      await pull({ all: true, type: "sessions" });
+
+      // Conflict prompt should have been shown
+      expect(inquirer.prompt).toHaveBeenCalled();
+    });
+
+    it("skips conflict prompt when --force is used", async () => {
+      const remoteResources = [
+        { id: "session-1", type: "sessions" as const, existsLocally: false },
+      ];
+      mockBackend.listResources.mockResolvedValue(remoteResources);
+      mockResourceHandler.findLocal.mockResolvedValue([
+        { id: "session-1", path: "/path/session-1.jsonl" },
+      ]);
+
+      // Mock different hashes
+      vi.mocked(hashContent)
+        .mockReturnValueOnce("local-hash")
+        .mockReturnValueOnce("remote-hash");
+
+      await pull({ all: true, type: "sessions", force: true });
+
+      // Conflict prompt should NOT have been shown
+      expect(inquirer.prompt).not.toHaveBeenCalled();
+      // Should have pulled the remote (overwritten)
+      expect(mockResourceHandler.write).toHaveBeenCalled();
+    });
+
+    it("keeps local when user chooses 'local' resolution", async () => {
+      const remoteResources = [
+        { id: "session-1", type: "sessions" as const, existsLocally: false },
+      ];
+      mockBackend.listResources.mockResolvedValue(remoteResources);
+      mockResourceHandler.findLocal.mockResolvedValue([
+        {
+          id: "session-1",
+          path: "/path/session-1.jsonl",
+          modifiedAt: new Date(),
+        },
+      ]);
+
+      vi.mocked(hashContent)
+        .mockReturnValueOnce("local-hash")
+        .mockReturnValueOnce("remote-hash");
+
+      vi.mocked(inquirer.prompt).mockResolvedValue({ resolution: "local" });
+
+      await pull({ all: true, type: "sessions" });
+
+      // Write should not be called for session-1 (kept local)
+      expect(mockResourceHandler.write).not.toHaveBeenCalledWith(
+        "session-1",
+        expect.anything(),
+        expect.anything()
+      );
+    });
+
+    it("overwrites local when user chooses 'remote' resolution", async () => {
+      const remoteResources = [
+        { id: "session-1", type: "sessions" as const, existsLocally: false },
+      ];
+      mockBackend.listResources.mockResolvedValue(remoteResources);
+      mockResourceHandler.findLocal.mockResolvedValue([
+        {
+          id: "session-1",
+          path: "/path/session-1.jsonl",
+          modifiedAt: new Date(),
+        },
+      ]);
+
+      vi.mocked(hashContent)
+        .mockReturnValueOnce("local-hash")
+        .mockReturnValueOnce("remote-hash");
+
+      vi.mocked(inquirer.prompt).mockResolvedValue({ resolution: "remote" });
+
+      await pull({ all: true, type: "sessions" });
+
+      // Write should be called to overwrite local
+      expect(mockResourceHandler.write).toHaveBeenCalled();
+    });
+
+    it("saves remote as conflict file when user chooses 'both' resolution", async () => {
+      const remoteResources = [
+        {
+          id: "session-1",
+          type: "sessions" as const,
+          existsLocally: false,
+          metadata: { project: "test" },
+        },
+      ];
+      mockBackend.listResources.mockResolvedValue(remoteResources);
+      mockResourceHandler.findLocal.mockResolvedValue([
+        {
+          id: "session-1",
+          path: "/path/session-1.jsonl",
+          modifiedAt: new Date(),
+        },
+      ]);
+
+      vi.mocked(hashContent)
+        .mockReturnValueOnce("local-hash")
+        .mockReturnValueOnce("remote-hash");
+
+      vi.mocked(inquirer.prompt).mockResolvedValue({ resolution: "both" });
+
+      await pull({ all: true, type: "sessions" });
+
+      // Conflict file should be written
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining(".conflict"),
+        expect.any(Buffer)
+      );
+    });
+
+    it("does not detect conflict when hashes match", async () => {
+      const remoteResources = [
+        { id: "session-1", type: "sessions" as const, existsLocally: false },
+      ];
+      mockBackend.listResources.mockResolvedValue(remoteResources);
+      mockResourceHandler.findLocal.mockResolvedValue([
+        { id: "session-1", path: "/path/session-1.jsonl" },
+      ]);
+
+      // Same hash for both
+      vi.mocked(hashContent).mockReturnValue("same-hash");
+
+      await pull({ all: true, type: "sessions" });
+
+      // No conflict prompt
+      expect(inquirer.prompt).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("dry-run with conflicts", () => {
+    it("shows conflicts in dry-run mode", async () => {
+      const remoteResources = [
+        { id: "session-1", type: "sessions" as const, existsLocally: false },
+      ];
+      mockBackend.listResources.mockResolvedValue(remoteResources);
+      mockResourceHandler.findLocal.mockResolvedValue([
+        {
+          id: "session-1",
+          path: "/path/session-1.jsonl",
+          modifiedAt: new Date(),
+        },
+      ]);
+
+      vi.mocked(hashContent)
+        .mockReturnValueOnce("local-hash")
+        .mockReturnValueOnce("remote-hash");
+
+      await pull({ all: true, type: "sessions", dryRun: true });
+
+      // Should show conflict info but not prompt
+      expect(inquirer.prompt).not.toHaveBeenCalled();
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining("conflict")
+      );
     });
   });
 });
