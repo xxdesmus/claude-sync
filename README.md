@@ -410,9 +410,6 @@ npm install -g @xxdesmus/claude-sync
 - [x] ESLint + Prettier + pre-commit hooks
 - [x] Conflict resolution for concurrent edits
 - [x] Automated releases with Release Please
-- [ ] Selective sync (by project)
-- [ ] Session search across machines
-- [ ] Team sharing (shared encryption keys)
 
 ## Contributing
 
