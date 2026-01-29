@@ -227,6 +227,69 @@ chmod 600 ~/.claude-sync/key
 4. Pull existing sessions: `claude-sync pull --all`
 5. Install hooks: `claude-sync install --global`
 
+## Architecture
+
+```
+claude-sync/
+├── src/
+│   ├── cli.ts                 # CLI entry point (Commander.js)
+│   ├── commands/              # Command implementations
+│   │   ├── init.ts            # Initialize backend & encryption key
+│   │   ├── push.ts            # Push resources to remote
+│   │   ├── pull.ts            # Pull resources from remote
+│   │   ├── install.ts         # Install Claude Code hooks
+│   │   └── status.ts          # Show sync status
+│   ├── backends/              # Storage backend implementations
+│   │   ├── index.ts           # Backend factory & interface
+│   │   ├── git.ts             # Git backend (clone, push, pull)
+│   │   └── s3.ts              # S3-compatible backend (AWS, GCS, R2)
+│   ├── resources/             # Resource type handlers
+│   │   ├── index.ts           # Resource registry
+│   │   ├── types.ts           # Resource type definitions
+│   │   └── handlers/          # Per-resource-type logic
+│   │       ├── sessions.ts    # Session transcripts
+│   │       ├── agents.ts      # Custom agent definitions
+│   │       └── settings.ts    # Claude Code settings (merge strategy)
+│   ├── crypto/                # Encryption module
+│   │   ├── encrypt.ts         # AES-256-GCM encrypt/decrypt
+│   │   └── keys.ts            # Key generation & loading
+│   └── utils/                 # Shared utilities
+│       ├── config.ts          # Config file management
+│       └── sessions.ts        # Session discovery
+└── ~/.claude-sync/            # User data directory
+    ├── config.json            # Backend configuration
+    ├── key                    # 256-bit encryption key
+    └── repo/                  # Git backend local clone
+```
+
+### Data Flow
+
+```mermaid
+flowchart LR
+    subgraph Local["Local Machine"]
+        CC[Claude Code] --> Session[Session File]
+        Session --> Handler[Resource Handler]
+        Handler --> Crypto[AES-256-GCM]
+    end
+
+    subgraph Remote["Your Storage"]
+        Git[(Git Repo)]
+        S3[(S3/GCS/R2)]
+    end
+
+    Crypto -->|Encrypted| Backend[Backend]
+    Backend --> Git
+    Backend --> S3
+```
+
+### Resource Types
+
+| Type | Strategy | Description |
+|------|----------|-------------|
+| `sessions` | Full replace | Claude Code conversation transcripts |
+| `agents` | Full replace | Custom agent definitions |
+| `settings` | Deep merge | Claude Code settings (merged across machines) |
+
 ## Development
 
 ```bash
@@ -244,12 +307,41 @@ pnpm build
 node dist/cli.js status
 ```
 
+### Code Quality
+
+```bash
+# Run tests (146 tests)
+pnpm test
+
+# Run tests with coverage
+pnpm test:coverage
+
+# Lint (ESLint + TypeScript)
+pnpm lint
+
+# Format (Prettier)
+pnpm format
+
+# Check formatting
+pnpm format:check
+
+# Full verification (build + lint + format + test)
+pnpm build && pnpm lint && pnpm format:check && pnpm test
+```
+
+### Pre-commit Hooks
+
+The project uses [husky](https://typicode.github.io/husky/) with [lint-staged](https://github.com/lint-staged/lint-staged) to automatically run ESLint and Prettier on staged files before each commit.
+
 ## Roadmap
 
 - [x] Git backend
 - [x] S3/GCS/R2 backend support
 - [x] Parallel encryption and batch uploads
 - [x] Encryption validation (prevent plaintext leaks)
+- [x] Generic resource sync (sessions, agents, settings)
+- [x] Comprehensive test coverage (146 tests)
+- [x] ESLint + Prettier + pre-commit hooks
 - [ ] Selective sync (by project)
 - [ ] Session search across machines
 - [ ] Team sharing (shared encryption keys)
