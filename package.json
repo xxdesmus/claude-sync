@@ -1,5 +1,5 @@
 {
-  "name": "@chronicideas/claude-sync",
+  "name": "@xxdesmus/claude-sync",
   "version": "0.1.0",
   "description": "Sync Claude Code conversations across machines. E2E encrypted, privacy-first.",
   "type": "module",
@@ -10,6 +10,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -37,11 +40,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kneetworks/claude-sync.git"
+    "url": "https://github.com/xxdesmus/claude-sync.git"
   },
-  "homepage": "https://github.com/kneetworks/claude-sync#readme",
+  "homepage": "https://github.com/xxdesmus/claude-sync#readme",
   "bugs": {
-    "url": "https://github.com/kneetworks/claude-sync/issues"
+    "url": "https://github.com/xxdesmus/claude-sync/issues"
   },
   "engines": {
     "node": ">=18"

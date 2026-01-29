@@ -3,7 +3,7 @@
 Sync Claude Code conversations across machines. E2E encrypted, privacy-first.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-[![CI](https://github.com/chronicideas/claude-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/chronicideas/claude-sync/actions/workflows/ci.yml)
+[![CI](https://github.com/xxdesmus/claude-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/xxdesmus/claude-sync/actions/workflows/ci.yml)
 
 > **Disclaimer:** This is an independent, community-built tool. It is **not affiliated with, endorsed by, or supported by Anthropic**. Use of Claude Code is subject to [Anthropic's Terms of Service](https://www.anthropic.com/policies/consumer-terms). This tool syncs conversation data that may contain sensitive information—ensure compliance with your organization's data policies before use.
 
@@ -24,8 +24,11 @@ Claude Code stores conversations locally. When you switch machines, your convers
 ## Quick Start
 
 ```bash
+# Configure npm to use GitHub Packages for this scope (one-time setup)
+npm config set @xxdesmus:registry https://npm.pkg.github.com
+
 # Install
-npm install -g @chronicideas/claude-sync
+npm install -g @xxdesmus/claude-sync
 
 # Initialize with your storage backend
 claude-sync init --git https://github.com/yourusername/claude-sessions-private
@@ -244,7 +247,11 @@ claude-sync pull --all --force
 
 ## Setting Up on a New Machine
 
-1. Install claude-sync: `npm install -g @chronicideas/claude-sync`
+1. Install claude-sync:
+   ```bash
+   npm config set @xxdesmus:registry https://npm.pkg.github.com
+   npm install -g @xxdesmus/claude-sync
+   ```
 2. Initialize with the same backend: `claude-sync init --git <same-repo>`
 3. Copy your encryption key from your other machine:
    ```bash
@@ -327,7 +334,7 @@ flowchart LR
 
 ```bash
 # Clone
-git clone https://github.com/kneetworks/claude-sync
+git clone https://github.com/xxdesmus/claude-sync
 cd claude-sync
 
 # Install dependencies
