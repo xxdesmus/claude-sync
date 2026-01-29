@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Git backend implementation.
+ * Stores encrypted resources in a Git repository for sync across machines.
+ */
+
 import simpleGit, { SimpleGit } from "simple-git";
 import fs from "fs/promises";
 import path from "path";
@@ -8,17 +13,22 @@ import type { ResourceType, RemoteResource } from "../resources/types.js";
 import { RESOURCE_CONFIGS } from "../resources/index.js";
 import { assertEncrypted } from "../crypto/encrypt.js";
 
+/** Local directory where the Git repository is cloned. */
 const SYNC_DIR = path.join(homedir(), ".claude-sync", "repo");
 
+/**
+ * Initializes the Git backend by cloning or configuring the repository.
+ * Creates necessary directories for storing different resource types.
+ * @param url - The Git repository URL (should be a private repository).
+ * @returns A promise that resolves when initialization is complete.
+ */
 export async function initGitBackend(url: string): Promise<void> {
   await fs.mkdir(SYNC_DIR, { recursive: true });
 
   const git: SimpleGit = simpleGit(SYNC_DIR);
 
   // Check if already initialized
-  const isRepo = await git
-    .checkIsRepo()
-    .catch(() => false);
+  const isRepo = await git.checkIsRepo().catch(() => false);
 
   if (isRepo) {
     // Verify remote matches
@@ -47,10 +57,14 @@ export async function initGitBackend(url: string): Promise<void> {
   await fs.mkdir(path.join(SYNC_DIR, "settings"), { recursive: true });
 }
 
-const BATCH_SIZE = 50; // Write files in parallel batches
+/** Number of files to write in parallel per batch. */
+const BATCH_SIZE = 50;
 
 /**
- * Get the storage path for a resource
+ * Computes the local storage path for a resource within the Git repository.
+ * @param type - The resource type (sessions, agents, settings).
+ * @param id - The resource identifier.
+ * @returns The absolute file path for the encrypted resource file.
  */
 function getResourcePath(type: ResourceType, id: string): string {
   const config = RESOURCE_CONFIGS[type];
@@ -59,13 +73,21 @@ function getResourcePath(type: ResourceType, id: string): string {
 }
 
 /**
- * Parse a resource ID from a storage filename
+ * Extracts the resource ID from an encrypted filename.
+ * Reverses the transformation done in getResourcePath.
+ * @param filename - The filename including .enc extension.
+ * @returns The original resource ID.
  */
 function parseResourceId(filename: string): string {
   // Remove .enc extension and convert _ back to /
   return filename.replace(".enc", "").replace(/_/g, "/");
 }
 
+/**
+ * Creates a Git-based backend for storing encrypted resources.
+ * Uses a local Git repository that syncs with a remote for cross-machine access.
+ * @returns A Backend implementation using Git for storage.
+ */
 export function createGitBackend(): Backend {
   const git: SimpleGit = simpleGit(SYNC_DIR);
 
@@ -131,7 +153,11 @@ export function createGitBackend(): Backend {
 
     async pushResourceBatch(
       type: ResourceType,
-      resources: Array<{ id: string; data: Buffer; metadata?: Record<string, unknown> }>,
+      resources: Array<{
+        id: string;
+        data: Buffer;
+        metadata?: Record<string, unknown>;
+      }>,
       onProgress?: (done: number, total: number) => void
     ): Promise<{ pushed: number; failed: number }> {
       const total = resources.length;

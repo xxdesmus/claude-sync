@@ -1,3 +1,8 @@
+/**
+ * @fileoverview S3 backend implementation.
+ * Stores encrypted resources in S3-compatible storage (AWS S3, GCS, R2, MinIO).
+ */
+
 import {
   S3Client,
   PutObjectCommand,
@@ -10,6 +15,10 @@ import type { ResourceType, RemoteResource } from "../resources/types.js";
 import { RESOURCE_CONFIGS } from "../resources/index.js";
 import { assertEncrypted } from "../crypto/encrypt.js";
 
+/**
+ * Configuration for S3-compatible storage backends.
+ * Supports AWS S3, Google Cloud Storage, Cloudflare R2, and MinIO.
+ */
 export interface S3Config {
   bucket: string;
   region?: string;
@@ -19,10 +28,15 @@ export interface S3Config {
   prefix?: string; // Optional prefix for all keys
 }
 
+/** Number of resources to upload in parallel per batch. */
 const BATCH_SIZE = 50;
 
 /**
- * Get the S3 key for a resource
+ * Computes the S3 object key for a resource.
+ * @param basePrefix - Optional prefix for all keys in the bucket.
+ * @param type - The resource type (sessions, agents, settings).
+ * @param id - The resource identifier.
+ * @returns The S3 object key for the encrypted resource.
  */
 function getResourceKey(
   basePrefix: string,
@@ -36,13 +50,23 @@ function getResourceKey(
 }
 
 /**
- * Parse a resource ID from an S3 key
+ * Extracts the resource ID from an S3 object key.
+ * Reverses the transformation done in getResourceKey.
+ * @param key - The full S3 object key.
+ * @param prefix - The prefix to remove from the key.
+ * @returns The original resource ID.
  */
 function parseResourceId(key: string, prefix: string): string {
   // Remove prefix and .enc extension, convert _ back to /
   return key.replace(prefix, "").replace(".enc", "").replace(/_/g, "/");
 }
 
+/**
+ * Creates an S3-based backend for storing encrypted resources.
+ * Compatible with AWS S3, Google Cloud Storage, Cloudflare R2, and MinIO.
+ * @param config - S3 configuration including bucket, region, and optional endpoint.
+ * @returns A Backend implementation using S3 for storage.
+ */
 export function createS3Backend(config: S3Config): Backend {
   const clientConfig: ConstructorParameters<typeof S3Client>[0] = {
     region: config.region || "us-east-1",
@@ -117,7 +141,11 @@ export function createS3Backend(config: S3Config): Backend {
 
     async pushResourceBatch(
       type: ResourceType,
-      resources: Array<{ id: string; data: Buffer; metadata?: Record<string, unknown> }>,
+      resources: Array<{
+        id: string;
+        data: Buffer;
+        metadata?: Record<string, unknown>;
+      }>,
       onProgress?: (done: number, total: number) => void
     ): Promise<{ pushed: number; failed: number }> {
       const total = resources.length;

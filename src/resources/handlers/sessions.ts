@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Sessions resource handler.
+ * Manages Claude Code conversation transcripts stored as JSONL files.
+ */
+
 import fs from "fs/promises";
 import path from "path";
 import { homedir } from "os";
@@ -9,11 +14,15 @@ import type {
 } from "../types.js";
 import { RESOURCE_CONFIGS } from "../index.js";
 
+/** Base Claude configuration directory. */
 const CLAUDE_DIR = path.join(homedir(), ".claude");
+/** Directory containing project-specific session files. */
 const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
 
 /**
- * Create a handler for Claude Code session transcripts
+ * Creates a handler for Claude Code session transcripts.
+ * Sessions are stored as JSONL files organized by project.
+ * @returns A ResourceHandler for managing session resources.
  */
 export function createSessionsHandler(): ResourceHandler {
   return {
@@ -62,7 +71,7 @@ export function createSessionsHandler(): ResourceHandler {
       content: Buffer,
       metadata?: Record<string, unknown>
     ): Promise<string> {
-      const project = (metadata?.project as string) || "unknown";
+      const _project = (metadata?.project as string) || "unknown";
       const localPath = await this.getLocalPath(id, metadata);
       await fs.mkdir(path.dirname(localPath), { recursive: true });
       await fs.writeFile(localPath, content);

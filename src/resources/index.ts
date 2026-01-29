@@ -1,4 +1,13 @@
-import type { ResourceType, ResourceHandler, ResourceTypeConfig } from "./types.js";
+/**
+ * @fileoverview Resource registry and factory functions.
+ * Central module for accessing resource handlers and configurations.
+ */
+
+import type {
+  ResourceType,
+  ResourceHandler,
+  ResourceTypeConfig,
+} from "./types.js";
 import { createSessionsHandler } from "./handlers/sessions.js";
 import { createAgentsHandler } from "./handlers/agents.js";
 import { createSettingsHandler } from "./handlers/settings.js";
@@ -6,7 +15,8 @@ import { createSettingsHandler } from "./handlers/settings.js";
 export * from "./types.js";
 
 /**
- * Resource type configurations
+ * Configuration definitions for each resource type.
+ * Includes display names, descriptions, sync strategies, and storage paths.
  */
 export const RESOURCE_CONFIGS: Record<ResourceType, ResourceTypeConfig> = {
   sessions: {
@@ -33,7 +43,10 @@ export const RESOURCE_CONFIGS: Record<ResourceType, ResourceTypeConfig> = {
 };
 
 /**
- * Factory to get the appropriate handler for a resource type
+ * Factory function to get the appropriate handler for a resource type.
+ * @param type - The resource type to get a handler for.
+ * @returns A ResourceHandler instance for the specified type.
+ * @throws Error if the resource type is unknown.
  */
 export function getResourceHandler(type: ResourceType): ResourceHandler {
   switch (type) {
@@ -49,7 +62,10 @@ export function getResourceHandler(type: ResourceType): ResourceHandler {
 }
 
 /**
- * Parse resource type from string, with validation
+ * Parses and validates a resource type string.
+ * @param type - The string to parse as a resource type.
+ * @returns The validated ResourceType.
+ * @throws Error if the type is not a valid resource type.
  */
 export function parseResourceType(type: string): ResourceType {
   const validTypes: ResourceType[] = ["sessions", "agents", "settings"];
@@ -62,7 +78,9 @@ export function parseResourceType(type: string): ResourceType {
 }
 
 /**
- * Check if a string is a valid resource type
+ * Type guard to check if a string is a valid resource type.
+ * @param type - The string to check.
+ * @returns True if the string is a valid ResourceType.
  */
 export function isValidResourceType(type: string): type is ResourceType {
   return ["sessions", "agents", "settings"].includes(type);

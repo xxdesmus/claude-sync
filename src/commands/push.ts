@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Push command implementation.
+ * Handles pushing local resources (sessions, agents, settings) to the remote backend.
+ */
+
 import ora from "ora";
 import chalk from "chalk";
 import { encrypt } from "../crypto/encrypt.js";
@@ -11,8 +16,12 @@ import {
   type ResourceItem,
 } from "../resources/index.js";
 
-const ENCRYPT_BATCH_SIZE = 20; // Parallel encryption batch size
+/** Number of resources to encrypt in parallel per batch. */
+const ENCRYPT_BATCH_SIZE = 20;
 
+/**
+ * Options for the push command.
+ */
 interface PushOptions {
   type?: ResourceType;
   session?: string;
@@ -21,13 +30,21 @@ interface PushOptions {
   dryRun?: boolean;
 }
 
+/**
+ * Pushes local resources to the remote storage backend.
+ * Encrypts resources before uploading and supports batch operations.
+ * @param options - Push configuration including resource type, specific session, or all flag.
+ * @returns A promise that resolves when the push operation is complete.
+ */
 export async function push(options: PushOptions): Promise<void> {
   const config = await loadConfig();
 
   // For dry-run, we only need to show local resources - no backend required
   if (!options.dryRun && !config?.initialized) {
     console.log(
-      chalk.red("Error: claude-sync not initialized. Run `claude-sync init` first.")
+      chalk.red(
+        "Error: claude-sync not initialized. Run `claude-sync init` first."
+      )
     );
     process.exit(1);
   }
@@ -42,14 +59,16 @@ export async function push(options: PushOptions): Promise<void> {
   const typesToPush: ResourceType[] = options.type
     ? [options.type]
     : options.all
-    ? ALL_RESOURCE_TYPES
-    : ["sessions"]; // Default to sessions for backwards compatibility
+      ? ALL_RESOURCE_TYPES
+      : ["sessions"]; // Default to sessions for backwards compatibility
 
   // Handle legacy session-specific options
   if (options.session || options.file) {
     if (options.type && options.type !== "sessions") {
       console.log(
-        chalk.red("Error: --session and --file options are only valid for sessions type")
+        chalk.red(
+          "Error: --session and --file options are only valid for sessions type"
+        )
       );
       process.exit(1);
     }
@@ -63,7 +82,9 @@ export async function push(options: PushOptions): Promise<void> {
   }
 
   if (options.dryRun) {
-    console.log(chalk.dim("\nRun without --dry-run to actually push these resources."));
+    console.log(
+      chalk.dim("\nRun without --dry-run to actually push these resources.")
+    );
   }
 }
 
@@ -106,7 +127,12 @@ async function pushSpecificSession(
   try {
     const data = await handler.read(resources[0]);
     const encrypted = await encrypt(data.toString("utf-8"));
-    await backend!.pushResource("sessions", resources[0].id, encrypted, resources[0].metadata);
+    await backend!.pushResource(
+      "sessions",
+      resources[0].id,
+      encrypted,
+      resources[0].metadata
+    );
     spinner.succeed("Pushed 1 session");
   } catch (error) {
     spinner.fail(`Failed to push session: ${error}`);
@@ -132,7 +158,9 @@ async function pushResourceType(
       console.log(chalk.dim("  No resources to push"));
       console.log();
     } else {
-      console.log(chalk.dim(`No ${typeConfig.displayName.toLowerCase()} to push`));
+      console.log(
+        chalk.dim(`No ${typeConfig.displayName.toLowerCase()} to push`)
+      );
     }
     return;
   }
@@ -159,23 +187,40 @@ async function pushResourceType(
 
   // For single resource, use simple push
   if (resources.length === 1) {
-    const spinner = ora(`Pushing ${typeConfig.displayName.toLowerCase()}...`).start();
+    const spinner = ora(
+      `Pushing ${typeConfig.displayName.toLowerCase()}...`
+    ).start();
     try {
       const data = await handler.read(resources[0]);
       const encrypted = await encrypt(data.toString("utf-8"));
-      await backend!.pushResource(type, resources[0].id, encrypted, resources[0].metadata);
-      spinner.succeed(`Pushed 1 ${typeConfig.displayName.toLowerCase().replace(/s$/, "")}`);
+      await backend!.pushResource(
+        type,
+        resources[0].id,
+        encrypted,
+        resources[0].metadata
+      );
+      spinner.succeed(
+        `Pushed 1 ${typeConfig.displayName.toLowerCase().replace(/s$/, "")}`
+      );
     } catch (error) {
-      spinner.fail(`Failed to push ${typeConfig.displayName.toLowerCase()}: ${error}`);
+      spinner.fail(
+        `Failed to push ${typeConfig.displayName.toLowerCase()}: ${error}`
+      );
     }
     return;
   }
 
   // For multiple resources, use batch mode
-  const spinner = ora(`Encrypting ${resources.length} ${typeConfig.displayName.toLowerCase()}...`).start();
+  const spinner = ora(
+    `Encrypting ${resources.length} ${typeConfig.displayName.toLowerCase()}...`
+  ).start();
 
   // Step 1: Read and encrypt all resources in parallel batches
-  const encryptedResources: Array<{ id: string; data: Buffer; metadata?: Record<string, unknown> }> = [];
+  const encryptedResources: Array<{
+    id: string;
+    data: Buffer;
+    metadata?: Record<string, unknown>;
+  }> = [];
   let encryptFailed = 0;
 
   for (let i = 0; i < resources.length; i += ENCRYPT_BATCH_SIZE) {
@@ -185,7 +230,11 @@ async function pushResourceType(
       batch.map(async (resource) => {
         const data = await handler.read(resource);
         const encrypted = await encrypt(data.toString("utf-8"));
-        return { id: resource.id, data: encrypted, metadata: resource.metadata };
+        return {
+          id: resource.id,
+          data: encrypted,
+          metadata: resource.metadata,
+        };
       })
     );
 
@@ -218,7 +267,9 @@ async function pushResourceType(
   const totalFailed = failed + encryptFailed;
 
   if (totalFailed > 0) {
-    spinner.warn(`Pushed ${pushed} ${typeConfig.displayName.toLowerCase()}, ${totalFailed} failed`);
+    spinner.warn(
+      `Pushed ${pushed} ${typeConfig.displayName.toLowerCase()}, ${totalFailed} failed`
+    );
   } else {
     spinner.succeed(`Pushed ${pushed} ${typeConfig.displayName.toLowerCase()}`);
   }

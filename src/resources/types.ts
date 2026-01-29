@@ -1,8 +1,19 @@
 /**
- * Resource types supported by claude-sync
+ * @fileoverview Type definitions for the resource sync system.
+ * Defines interfaces for resource types, handlers, and configuration.
+ */
+
+/**
+ * Resource types supported by claude-sync.
+ * - sessions: Claude Code conversation transcripts
+ * - agents: Custom agent definitions
+ * - settings: Claude Code settings (merged across machines)
  */
 export type ResourceType = "sessions" | "agents" | "settings";
 
+/**
+ * Array of all supported resource types for iteration.
+ */
 export const ALL_RESOURCE_TYPES: ResourceType[] = [
   "sessions",
   "agents",

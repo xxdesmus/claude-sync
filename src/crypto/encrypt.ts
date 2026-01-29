@@ -35,7 +35,10 @@ export async function decrypt(encryptedData: Buffer): Promise<string> {
 
   // Extract components
   const iv = encryptedData.subarray(0, IV_LENGTH);
-  const authTag = encryptedData.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
+  const authTag = encryptedData.subarray(
+    IV_LENGTH,
+    IV_LENGTH + AUTH_TAG_LENGTH
+  );
   const ciphertext = encryptedData.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
 
   const decipher = createDecipheriv(ALGORITHM, key, iv, {
@@ -75,7 +78,10 @@ export function encryptWithKey(data: string | Buffer, key: Buffer): Buffer {
  */
 export function decryptWithKey(encryptedData: Buffer, key: Buffer): string {
   const iv = encryptedData.subarray(0, IV_LENGTH);
-  const authTag = encryptedData.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
+  const authTag = encryptedData.subarray(
+    IV_LENGTH,
+    IV_LENGTH + AUTH_TAG_LENGTH
+  );
   const ciphertext = encryptedData.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
 
   const decipher = createDecipheriv(ALGORITHM, key, iv, {

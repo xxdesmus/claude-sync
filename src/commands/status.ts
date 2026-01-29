@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Status command implementation.
+ * Displays current sync status, configuration, and resource counts.
+ */
+
 import chalk from "chalk";
 import { loadConfig } from "../utils/config.js";
 import { keyExists } from "../crypto/keys.js";
@@ -7,6 +12,11 @@ import {
   RESOURCE_CONFIGS,
 } from "../resources/index.js";
 
+/**
+ * Displays the current status of claude-sync including initialization state,
+ * backend configuration, encryption key status, and resource counts.
+ * @returns A promise that resolves when status output is complete.
+ */
 export async function status(): Promise<void> {
   console.log(chalk.bold("\nClaude Sync Status\n"));
 
@@ -54,7 +64,9 @@ export async function status(): Promise<void> {
 
     try {
       const allResources = await handler.findLocal();
-      const pendingResources = await handler.findLocal({ modifiedSinceLastSync: true });
+      const pendingResources = await handler.findLocal({
+        modifiedSinceLastSync: true,
+      });
 
       console.log(`  ${typeConfig.displayName}:`);
       console.log(`    Local: ${allResources.length}`);
@@ -69,7 +81,9 @@ export async function status(): Promise<void> {
   // Created date
   if (config.createdAt) {
     console.log(
-      chalk.dim(`Initialized: ${new Date(config.createdAt).toLocaleDateString()}`)
+      chalk.dim(
+        `Initialized: ${new Date(config.createdAt).toLocaleDateString()}`
+      )
     );
   }
   console.log();

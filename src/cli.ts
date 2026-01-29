@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+/**
+ * @fileoverview Main CLI entry point for claude-sync.
+ * Provides commands for syncing Claude Code conversations, agents, and settings
+ * across machines with end-to-end encryption.
+ */
+
 import { Command } from "commander";
 import { init } from "./commands/init.js";
 import { push } from "./commands/push.js";
@@ -35,8 +41,14 @@ program
     `Push local resources to cloud storage. Types: ${ALL_RESOURCE_TYPES.join(", ")}. Default: sessions`
   )
   .option("--session <id>", "Push a specific session (sessions type only)")
-  .option("--file <path>", "Push a specific transcript file (sessions type only)")
-  .option("--all", "Push all resources (of the specified type, or all types if no type specified)")
+  .option(
+    "--file <path>",
+    "Push a specific transcript file (sessions type only)"
+  )
+  .option(
+    "--all",
+    "Push all resources (of the specified type, or all types if no type specified)"
+  )
   .option("--dry-run", "Preview what would be pushed without actually pushing")
   .action((type, options) => {
     // Validate type if provided
@@ -55,7 +67,10 @@ program
     `Pull resources from cloud storage. Types: ${ALL_RESOURCE_TYPES.join(", ")}. Default: sessions`
   )
   .option("--session <id>", "Pull a specific session (sessions type only)")
-  .option("--all", "Pull all resources (of the specified type, or all types if no type specified)")
+  .option(
+    "--all",
+    "Pull all resources (of the specified type, or all types if no type specified)"
+  )
   .option("--dry-run", "Preview what would be pulled without actually pulling")
   .action((type, options) => {
     // Validate type if provided

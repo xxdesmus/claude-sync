@@ -129,11 +129,11 @@ describe("isEncrypted", () => {
   });
 
   it("returns false for data starting with [", () => {
-    const json = Buffer.from('[1, 2, 3]');
+    const json = Buffer.from("[1, 2, 3]");
     expect(isEncrypted(json)).toBe(false);
   });
 
-  it("returns false for data starting with \"", () => {
+  it('returns false for data starting with "', () => {
     const json = Buffer.from('"string"');
     expect(isEncrypted(json)).toBe(false);
   });

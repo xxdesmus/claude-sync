@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Agents resource handler.
+ * Manages custom Claude agent definitions stored as Markdown files.
+ */
+
 import fs from "fs/promises";
 import path from "path";
 import { homedir } from "os";
@@ -9,11 +14,15 @@ import type {
 } from "../types.js";
 import { RESOURCE_CONFIGS } from "../index.js";
 
+/** Base Claude configuration directory. */
 const CLAUDE_DIR = path.join(homedir(), ".claude");
+/** Directory containing custom agent definition files. */
 const AGENTS_DIR = path.join(CLAUDE_DIR, "agents");
 
 /**
- * Create a handler for custom agent definitions
+ * Creates a handler for custom agent definitions.
+ * Agents are stored as Markdown files in the agents directory.
+ * @returns A ResourceHandler for managing agent resources.
  */
 export function createAgentsHandler(): ResourceHandler {
   return {

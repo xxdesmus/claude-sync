@@ -1,14 +1,26 @@
+/**
+ * @fileoverview Install command implementation.
+ * Installs Claude Code hooks for automatic session sync on start/end.
+ */
+
 import fs from "fs/promises";
 import path from "path";
 import ora from "ora";
 import chalk from "chalk";
 import { homedir } from "os";
 
+/**
+ * Options for the install command.
+ */
 interface InstallOptions {
   global?: boolean;
   project?: boolean;
 }
 
+/**
+ * Hook configuration to be installed in Claude Code settings.
+ * Sets up automatic push on session end and pull on session start.
+ */
 const HOOKS_CONFIG = {
   hooks: {
     SessionEnd: [
@@ -16,7 +28,8 @@ const HOOKS_CONFIG = {
         hooks: [
           {
             type: "command",
-            command: "claude-sync push --session $CLAUDE_SESSION_ID --file $CLAUDE_TRANSCRIPT_PATH",
+            command:
+              "claude-sync push --session $CLAUDE_SESSION_ID --file $CLAUDE_TRANSCRIPT_PATH",
           },
         ],
       },
@@ -34,6 +47,12 @@ const HOOKS_CONFIG = {
   },
 };
 
+/**
+ * Installs claude-sync hooks into Claude Code settings.
+ * Adds SessionStart and SessionEnd hooks for automatic sync operations.
+ * @param options - Installation options specifying global or project-level install.
+ * @returns A promise that resolves when hooks are installed.
+ */
 export async function install(options: InstallOptions): Promise<void> {
   // Default to global if neither specified
   const isGlobal = options.global || !options.project;
@@ -67,9 +86,7 @@ export async function install(options: InstallOptions): Promise<void> {
         // Check if our hook already exists
         const alreadyInstalled = existingHooks[event].some((h: unknown) => {
           const hook = h as { hooks?: Array<{ command?: string }> };
-          return hook.hooks?.some((hh) =>
-            hh.command?.includes("claude-sync")
-          );
+          return hook.hooks?.some((hh) => hh.command?.includes("claude-sync"));
         });
 
         if (!alreadyInstalled) {
@@ -89,7 +106,9 @@ export async function install(options: InstallOptions): Promise<void> {
       `Hooks installed to ${isGlobal ? "~/.claude/settings.json" : ".claude/settings.json"}`
     );
 
-    console.log(chalk.green("\n✅ Claude Code will now sync sessions automatically!\n"));
+    console.log(
+      chalk.green("\n✅ Claude Code will now sync sessions automatically!\n")
+    );
     console.log(chalk.dim("Hooks installed:"));
     console.log(chalk.dim("  • SessionEnd → push current session"));
     console.log(chalk.dim("  • SessionStart → pull new sessions\n"));

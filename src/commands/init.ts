@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Init command implementation.
+ * Handles initialization of claude-sync with encryption key generation
+ * and backend configuration.
+ */
+
 import inquirer from "inquirer";
 import ora from "ora";
 import chalk from "chalk";
@@ -5,6 +11,9 @@ import { generateKey, saveKey } from "../crypto/keys.js";
 import { initGitBackend } from "../backends/git.js";
 import { saveConfig } from "../utils/config.js";
 
+/**
+ * Options for the init command specifying the storage backend.
+ */
 interface InitOptions {
   git?: string;
   s3?: string;
@@ -14,12 +23,21 @@ interface InitOptions {
   endpoint?: string;
 }
 
-// Common S3-compatible endpoints
+/**
+ * Common S3-compatible endpoint URLs for various cloud providers.
+ */
 const S3_ENDPOINTS = {
   gcs: "https://storage.googleapis.com",
   r2: "https://{account_id}.r2.cloudflarestorage.com", // User needs to replace {account_id}
 };
 
+/**
+ * Initializes claude-sync with encryption and a storage backend.
+ * Generates a new encryption key, configures the selected backend (Git or S3-compatible),
+ * and saves the configuration. Supports interactive mode if no options are provided.
+ * @param options - Backend configuration options (git URL, S3 bucket, etc.)
+ * @returns A promise that resolves when initialization is complete.
+ */
 export async function init(options: InitOptions): Promise<void> {
   console.log(chalk.bold("\n🔄 Claude Sync Setup\n"));
 
@@ -92,7 +110,8 @@ export async function init(options: InitOptions): Promise<void> {
             type: "input",
             name: "bucket",
             message: "S3 bucket name:",
-            validate: (input: string) => input.length > 0 || "Bucket name required",
+            validate: (input: string) =>
+              input.length > 0 || "Bucket name required",
           },
           {
             type: "input",
@@ -109,7 +128,8 @@ export async function init(options: InitOptions): Promise<void> {
             type: "input",
             name: "bucket",
             message: "GCS bucket name:",
-            validate: (input: string) => input.length > 0 || "Bucket name required",
+            validate: (input: string) =>
+              input.length > 0 || "Bucket name required",
           },
         ]);
         backendConfig = {
@@ -118,7 +138,9 @@ export async function init(options: InitOptions): Promise<void> {
           region: "auto",
         };
         console.log(
-          chalk.dim("\nNote: Set GOOGLE_APPLICATION_CREDENTIALS or use gcloud auth\n")
+          chalk.dim(
+            "\nNote: Set GOOGLE_APPLICATION_CREDENTIALS or use gcloud auth\n"
+          )
         );
       } else if (choice === "r2") {
         // Cloudflare R2
@@ -127,13 +149,15 @@ export async function init(options: InitOptions): Promise<void> {
             type: "input",
             name: "bucket",
             message: "R2 bucket name:",
-            validate: (input: string) => input.length > 0 || "Bucket name required",
+            validate: (input: string) =>
+              input.length > 0 || "Bucket name required",
           },
           {
             type: "input",
             name: "accountId",
             message: "Cloudflare account ID:",
-            validate: (input: string) => input.length > 0 || "Account ID required",
+            validate: (input: string) =>
+              input.length > 0 || "Account ID required",
           },
         ]);
         backendConfig = {
@@ -142,7 +166,9 @@ export async function init(options: InitOptions): Promise<void> {
           region: "auto",
         };
         console.log(
-          chalk.dim("\nNote: Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY with R2 API tokens\n")
+          chalk.dim(
+            "\nNote: Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY with R2 API tokens\n"
+          )
         );
       } else {
         // Custom S3-compatible
@@ -151,7 +177,8 @@ export async function init(options: InitOptions): Promise<void> {
             type: "input",
             name: "bucket",
             message: "Bucket name:",
-            validate: (input: string) => input.length > 0 || "Bucket name required",
+            validate: (input: string) =>
+              input.length > 0 || "Bucket name required",
           },
           {
             type: "input",
@@ -214,18 +241,16 @@ export async function init(options: InitOptions): Promise<void> {
       chalk.cyan("claude-sync install") +
       chalk.dim(" to add hooks to Claude Code")
   );
-  console.log(
-    chalk.dim("  2. Your sessions will now sync automatically\n")
-  );
+  console.log(chalk.dim("  2. Your sessions will now sync automatically\n"));
 
   // Security reminder
   console.log(chalk.yellow("⚠️  Important:"));
   console.log(
-    chalk.dim(
-      "   Your encryption key is stored at ~/.claude-sync/key"
-    )
+    chalk.dim("   Your encryption key is stored at ~/.claude-sync/key")
   );
   console.log(
-    chalk.dim("   Back it up safely - without it, you cannot decrypt your sessions\n")
+    chalk.dim(
+      "   Back it up safely - without it, you cannot decrypt your sessions\n"
+    )
   );
 }

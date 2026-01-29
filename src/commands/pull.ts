@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Pull command implementation.
+ * Handles pulling remote resources (sessions, agents, settings) from the backend.
+ */
+
 import ora from "ora";
 import chalk from "chalk";
 import { decrypt } from "../crypto/encrypt.js";
@@ -10,6 +15,9 @@ import {
   type ResourceType,
 } from "../resources/index.js";
 
+/**
+ * Options for the pull command.
+ */
 interface PullOptions {
   type?: ResourceType;
   session?: string;
@@ -17,12 +25,20 @@ interface PullOptions {
   dryRun?: boolean;
 }
 
+/**
+ * Pulls resources from the remote storage backend to the local machine.
+ * Decrypts resources after downloading and supports merge strategies for settings.
+ * @param options - Pull configuration including resource type, specific session, or all flag.
+ * @returns A promise that resolves when the pull operation is complete.
+ */
 export async function pull(options: PullOptions): Promise<void> {
   const config = await loadConfig();
 
   if (!config?.initialized) {
     console.log(
-      chalk.red("Error: claude-sync not initialized. Run `claude-sync init` first.")
+      chalk.red(
+        "Error: claude-sync not initialized. Run `claude-sync init` first."
+      )
     );
     process.exit(1);
   }
@@ -37,8 +53,8 @@ export async function pull(options: PullOptions): Promise<void> {
   const typesToPull: ResourceType[] = options.type
     ? [options.type]
     : options.all
-    ? ALL_RESOURCE_TYPES
-    : ["sessions"]; // Default to sessions for backwards compatibility
+      ? ALL_RESOURCE_TYPES
+      : ["sessions"]; // Default to sessions for backwards compatibility
 
   // Handle legacy session-specific options
   if (options.session) {
@@ -58,7 +74,9 @@ export async function pull(options: PullOptions): Promise<void> {
   }
 
   if (options.dryRun) {
-    console.log(chalk.dim("\nRun without --dry-run to actually pull these resources."));
+    console.log(
+      chalk.dim("\nRun without --dry-run to actually pull these resources.")
+    );
   }
 }
 
@@ -91,7 +109,11 @@ async function pullSpecificSession(
 
     const encrypted = await backend.pullResource("sessions", sessionId);
     const decrypted = await decrypt(encrypted);
-    await handler.write(sessionId, Buffer.from(decrypted, "utf-8"), resource.metadata);
+    await handler.write(
+      sessionId,
+      Buffer.from(decrypted, "utf-8"),
+      resource.metadata
+    );
 
     spinner!.succeed(`Pulled session ${sessionId}`);
   } catch (error) {
@@ -114,7 +136,9 @@ async function pullResourceType(
 
   const spinner = options.dryRun
     ? null
-    : ora(`Fetching ${typeConfig.displayName.toLowerCase()} from remote...`).start();
+    : ora(
+        `Fetching ${typeConfig.displayName.toLowerCase()} from remote...`
+      ).start();
 
   try {
     // Get list of remote resources
@@ -126,7 +150,9 @@ async function pullResourceType(
         console.log(chalk.dim("  No resources on remote"));
         console.log();
       } else {
-        spinner!.succeed(`No ${typeConfig.displayName.toLowerCase()} on remote`);
+        spinner!.succeed(
+          `No ${typeConfig.displayName.toLowerCase()} on remote`
+        );
       }
       return;
     }
@@ -149,7 +175,9 @@ async function pullResourceType(
         console.log(chalk.dim("  All resources are up to date"));
         console.log();
       } else {
-        spinner!.succeed(`All ${typeConfig.displayName.toLowerCase()} are up to date`);
+        spinner!.succeed(
+          `All ${typeConfig.displayName.toLowerCase()} are up to date`
+        );
       }
       return;
     }
@@ -194,29 +222,47 @@ async function pullResourceType(
             );
             await handler.write(resource.id, merged, resource.metadata);
           } else {
-            await handler.write(resource.id, Buffer.from(decrypted, "utf-8"), resource.metadata);
+            await handler.write(
+              resource.id,
+              Buffer.from(decrypted, "utf-8"),
+              resource.metadata
+            );
           }
         } else {
-          await handler.write(resource.id, Buffer.from(decrypted, "utf-8"), resource.metadata);
+          await handler.write(
+            resource.id,
+            Buffer.from(decrypted, "utf-8"),
+            resource.metadata
+          );
         }
 
         pulled++;
         spinner!.text = `Pulled ${pulled}/${toPull.length} ${typeConfig.displayName.toLowerCase()}...`;
-      } catch (error) {
+      } catch {
         failed++;
       }
     }
 
     if (failed > 0) {
-      spinner!.warn(`Pulled ${pulled} ${typeConfig.displayName.toLowerCase()}, ${failed} failed`);
+      spinner!.warn(
+        `Pulled ${pulled} ${typeConfig.displayName.toLowerCase()}, ${failed} failed`
+      );
     } else {
-      spinner!.succeed(`Pulled ${pulled} ${typeConfig.displayName.toLowerCase()}`);
+      spinner!.succeed(
+        `Pulled ${pulled} ${typeConfig.displayName.toLowerCase()}`
+      );
     }
   } catch (error) {
     if (spinner) {
-      spinner.fail(`Failed to pull ${typeConfig.displayName.toLowerCase()}: ${error}`);
+      spinner.fail(
+        `Failed to pull ${typeConfig.displayName.toLowerCase()}: ${error}`
+      );
     } else {
-      console.log(chalk.red(`Failed to pull ${typeConfig.displayName.toLowerCase()}: ${error}`));
+      console.log(
+        chalk.red(
+          `Failed to pull ${typeConfig.displayName.toLowerCase()}: ${error}`
+        )
+      );
     }
     process.exit(1);
   }

@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Settings resource handler.
+ * Manages Claude Code settings with merge-based sync strategy.
+ */
+
 import fs from "fs/promises";
 import path from "path";
 import { homedir } from "os";
@@ -8,16 +13,19 @@ import type {
 } from "../types.js";
 import { RESOURCE_CONFIGS } from "../index.js";
 
+/** Base Claude configuration directory. */
 const CLAUDE_DIR = path.join(homedir(), ".claude");
+/** Path to the Claude Code settings file. */
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
-const SETTINGS_ID = "settings"; // Single resource ID
+/** Resource ID for settings (always a single resource). */
+const SETTINGS_ID = "settings";
 
 /**
- * Create a handler for Claude Code settings
- *
+ * Creates a handler for Claude Code settings.
  * Settings use a merge strategy - when pulling, local and remote settings
  * are merged rather than replaced. This allows for machine-specific settings
  * while syncing shared preferences like enabledPlugins.
+ * @returns A ResourceHandler for managing settings resources.
  */
 export function createSettingsHandler(): ResourceHandler {
   return {
@@ -95,7 +103,11 @@ export function createSettingsHandler(): ResourceHandler {
 }
 
 /**
- * Deep merge two objects, with right object taking precedence
+ * Deep merges two objects, with the right (source) object taking precedence.
+ * Arrays are unioned (deduplicated), objects are recursively merged.
+ * @param target - The base object to merge into.
+ * @param source - The object whose values take precedence.
+ * @returns A new merged object.
  */
 function deepMerge(
   target: Record<string, unknown>,
@@ -110,10 +122,7 @@ function deepMerge(
     if (Array.isArray(sourceVal) && Array.isArray(targetVal)) {
       // Union arrays, removing duplicates
       result[key] = [...new Set([...targetVal, ...sourceVal])];
-    } else if (
-      isObject(sourceVal) &&
-      isObject(targetVal)
-    ) {
+    } else if (isObject(sourceVal) && isObject(targetVal)) {
       // Recursively merge objects
       result[key] = deepMerge(
         targetVal as Record<string, unknown>,
@@ -128,6 +137,11 @@ function deepMerge(
   return result;
 }
 
+/**
+ * Type guard to check if a value is a plain object (not array or null).
+ * @param val - The value to check.
+ * @returns True if the value is a plain object.
+ */
 function isObject(val: unknown): val is Record<string, unknown> {
   return val !== null && typeof val === "object" && !Array.isArray(val);
 }
