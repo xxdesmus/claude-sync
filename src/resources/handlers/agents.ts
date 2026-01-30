@@ -37,6 +37,12 @@ export function createAgentsHandler(): ResourceHandler {
 
         for (const filePath of files) {
           const stat = await fs.stat(filePath);
+
+          // Skip empty files - they have no content to sync
+          if (stat.size === 0) {
+            continue;
+          }
+
           const id = path.basename(filePath, ".md");
 
           items.push({
