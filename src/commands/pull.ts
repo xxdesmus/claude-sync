@@ -185,9 +185,26 @@ async function pullResourceType(
     // Get local resources
     const localResources = await handler.findLocal();
     const localById = new Map<string, ResourceItem>();
+    const localByBasename = new Map<string, ResourceItem>();
     for (const r of localResources) {
       localById.set(r.id, r);
+      // Also index by basename for matching remote IDs that include path prefixes
+      const basename = r.id.includes("/") ? r.id.split("/").pop()! : r.id;
+      localByBasename.set(basename, r);
     }
+
+    // Helper to find local resource by remote ID (tries full ID, then basename)
+    const findLocalResource = (remoteId: string): ResourceItem | undefined => {
+      // First try exact match
+      const local = localById.get(remoteId);
+      if (local) return local;
+
+      // Try matching by basename (handles remote IDs with path prefixes)
+      const remoteBasename = remoteId.includes("/")
+        ? remoteId.split("/").pop()!
+        : remoteId;
+      return localByBasename.get(remoteBasename);
+    };
 
     // Determine which resources to pull and detect conflicts
     let toPull: RemoteResource[] = [];
@@ -196,7 +213,7 @@ async function pullResourceType(
     if (options.all) {
       // Pull all - check for conflicts on resources that exist locally
       for (const remote of remoteResources) {
-        const local = localById.get(remote.id);
+        const local = findLocalResource(remote.id);
         if (local && local.path) {
           // Check for conflict by comparing content hashes
           const hasConflict = await detectConflict(
@@ -223,7 +240,7 @@ async function pullResourceType(
       }
     } else {
       // Only pull resources that don't exist locally
-      toPull = remoteResources.filter((r) => !localById.has(r.id));
+      toPull = remoteResources.filter((r) => !findLocalResource(r.id));
     }
 
     // Handle dry run
