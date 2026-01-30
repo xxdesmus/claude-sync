@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/xxdesmus/claude-sync/compare/v0.4.1...v0.4.2) (2026-01-30)
+
+
+### Bug Fixes
+
+* revert session ID change that broke local/remote matching ([5fea33f](https://github.com/xxdesmus/claude-sync/commit/5fea33f485d13bd9f2d451853c89ebfcf890c325))
+
 ## [0.4.1](https://github.com/xxdesmus/claude-sync/compare/v0.4.0...v0.4.1) (2026-01-30)
 
 
