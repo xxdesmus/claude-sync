@@ -382,6 +382,39 @@ claude-sync pull --all
 
 Active sessions will always differ slightly - that's expected.
 
+### Cleaning up R2/S3 storage (nuclear option)
+
+If you have orphaned or duplicate objects in remote storage from ID format changes, you can delete everything and push fresh:
+
+```bash
+# Using s3cmd (adjust host for your R2 account ID)
+s3cmd del --recursive s3://your-bucket/sessions/ \
+  --access_key="$AWS_ACCESS_KEY_ID" \
+  --secret_key="$AWS_SECRET_ACCESS_KEY" \
+  --host=ACCOUNT_ID.r2.cloudflarestorage.com \
+  --host-bucket="%(bucket)s.ACCOUNT_ID.r2.cloudflarestorage.com" \
+  --no-check-certificate
+
+# Clear sync state and push fresh from your primary machine
+rm ~/.claude-sync/sync-state.json
+claude-sync push --all
+
+# Then on other machines, clear sync state and pull
+rm ~/.claude-sync/sync-state.json
+claude-sync pull --all
+claude-sync push --all  # To populate sync state for local sessions
+```
+
+### "Pending sync" count is high after pulling
+
+If `claude-sync status` shows many pending sessions after a pull, push to populate the sync state:
+
+```bash
+claude-sync push --all
+```
+
+This records sync state for all local sessions without re-uploading identical content.
+
 ## Architecture
 
 ```
