@@ -20,6 +20,48 @@ const CLAUDE_DIR = path.join(homedir(), ".claude");
 const PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
 
 /**
+ * Normalizes a session ID to canonical format: project/basename.
+ * Handles both subdirectory structure and flat files with underscores.
+ * @param basename - The filename without extension.
+ * @param dirname - The directory relative to PROJECTS_DIR (may be "." for flat files).
+ * @returns Normalized ID in project/basename format.
+ */
+function normalizeSessionId(basename: string, dirname: string): string {
+  if (dirname && dirname !== "." && dirname !== "") {
+    // Subdirectory structure: ~/.claude/projects/agent-aprompt/suggestion-xxx.jsonl
+    // ID = agent-aprompt/suggestion-xxx
+    return `${dirname}/${basename}`;
+  }
+
+  // Flat file - check for underscore pattern like agent-aprompt_suggestion-xxx
+  // This happens when Claude Code stores files differently on some machines
+  const underscoreMatch = basename.match(/^([^_]+)_(.+)$/);
+  if (underscoreMatch) {
+    // Convert agent-aprompt_suggestion-xxx to agent-aprompt/suggestion-xxx
+    return `${underscoreMatch[1]}/${underscoreMatch[2]}`;
+  }
+
+  // No project prefix found - use "unknown" as fallback
+  return `unknown/${basename}`;
+}
+
+/**
+ * Extracts project and basename from a normalized session ID.
+ * @param id - Normalized ID in project/basename format.
+ * @returns Object with project and basename components.
+ */
+function parseSessionId(id: string): { project: string; basename: string } {
+  const slashIndex = id.indexOf("/");
+  if (slashIndex === -1) {
+    return { project: "unknown", basename: id };
+  }
+  return {
+    project: id.substring(0, slashIndex),
+    basename: id.substring(slashIndex + 1),
+  };
+}
+
+/**
  * Creates a handler for Claude Code session transcripts.
  * Sessions are stored as JSONL files organized by project.
  * @returns A ResourceHandler for managing session resources.
@@ -42,11 +84,13 @@ export function createSessionsHandler(): ResourceHandler {
           continue;
         }
 
-        const id = path.basename(filePath, ".jsonl");
-
-        // Extract project from path for metadata
+        const basename = path.basename(filePath, ".jsonl");
         const relativePath = path.relative(PROJECTS_DIR, filePath);
-        const project = path.dirname(relativePath);
+        const dirname = path.dirname(relativePath);
+
+        // Normalize ID to always include project prefix
+        const id = normalizeSessionId(basename, dirname);
+        const { project } = parseSessionId(id);
 
         items.push({
           id,
@@ -92,10 +136,9 @@ export function createSessionsHandler(): ResourceHandler {
     async write(
       id: string,
       content: Buffer,
-      metadata?: Record<string, unknown>
+      _metadata?: Record<string, unknown>
     ): Promise<string> {
-      const _project = (metadata?.project as string) || "unknown";
-      const localPath = await this.getLocalPath(id, metadata);
+      const localPath = await this.getLocalPath(id);
       await fs.mkdir(path.dirname(localPath), { recursive: true });
       await fs.writeFile(localPath, content);
       return localPath;
@@ -103,22 +146,24 @@ export function createSessionsHandler(): ResourceHandler {
 
     async getLocalPath(
       id: string,
-      metadata?: Record<string, unknown>
+      _metadata?: Record<string, unknown>
     ): Promise<string> {
-      const project = (metadata?.project as string) || "unknown";
+      // ID is in normalized format: project/basename
+      // Write to subdirectory structure: ~/.claude/projects/project/basename.jsonl
+      const { project, basename } = parseSessionId(id);
       const projectDir = path.join(PROJECTS_DIR, project);
       await fs.mkdir(projectDir, { recursive: true });
-      return path.join(projectDir, `${id}.jsonl`);
+      return path.join(projectDir, `${basename}.jsonl`);
     },
 
     async getConflictPath(
       id: string,
-      metadata?: Record<string, unknown>
+      _metadata?: Record<string, unknown>
     ): Promise<string> {
-      const project = (metadata?.project as string) || "unknown";
+      const { project, basename } = parseSessionId(id);
       const projectDir = path.join(PROJECTS_DIR, project);
       await fs.mkdir(projectDir, { recursive: true });
-      return path.join(projectDir, `${id}.conflict.jsonl`);
+      return path.join(projectDir, `${basename}.conflict.jsonl`);
     },
   };
 }
