@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/xxdesmus/claude-sync/compare/v0.4.0...v0.4.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* use full relative path as session ID for consistent local/remote matching ([0689084](https://github.com/xxdesmus/claude-sync/commit/06890848119e2d91385f2bd649c558e6ac990317))
+
 ## [0.4.0](https://github.com/xxdesmus/claude-sync/compare/v0.3.4...v0.4.0) (2026-01-30)
 
 
