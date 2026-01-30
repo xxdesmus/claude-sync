@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.5](https://github.com/xxdesmus/claude-sync/compare/v0.4.4...v0.4.5) (2026-01-30)
+
+
+### Bug Fixes
+
+* prevent duplicate sessions when pulling with --all ([85f0c47](https://github.com/xxdesmus/claude-sync/commit/85f0c47e38633c771ae6f263f9aff8f041f91da0))
+
 ## [0.4.4](https://github.com/xxdesmus/claude-sync/compare/v0.4.3...v0.4.4) (2026-01-30)
 
 
