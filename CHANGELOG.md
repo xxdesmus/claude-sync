@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/xxdesmus/claude-sync/compare/v0.3.0...v0.3.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* track sync state on push to avoid re-pushing unchanged resources ([542e1e8](https://github.com/xxdesmus/claude-sync/commit/542e1e885b5845c048433a149c6e4e4d7d5697c8))
+
 ## [0.3.0](https://github.com/xxdesmus/claude-sync/compare/v0.2.0...v0.3.0) (2026-01-30)
 
 
