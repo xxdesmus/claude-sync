@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/xxdesmus/claude-sync/compare/v0.3.3...v0.3.4) (2026-01-30)
+
+
+### Bug Fixes
+
+* improve encrypted data detection to reduce false positives ([954dcac](https://github.com/xxdesmus/claude-sync/commit/954dcac0380aa4da5b6d74f328d3c4527c151ed0))
+
 ## [0.3.3](https://github.com/xxdesmus/claude-sync/compare/v0.3.2...v0.3.3) (2026-01-30)
 
 
