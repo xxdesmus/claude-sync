@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/xxdesmus/claude-sync/compare/v0.4.2...v0.4.3) (2026-01-30)
+
+
+### Bug Fixes
+
+* match remote sessions by basename when full ID doesn't match ([5bd46bf](https://github.com/xxdesmus/claude-sync/commit/5bd46bf920cb1e3e8425d8ded39eeae54936c71b))
+
 ## [0.4.2](https://github.com/xxdesmus/claude-sync/compare/v0.4.1...v0.4.2) (2026-01-30)
 
 
