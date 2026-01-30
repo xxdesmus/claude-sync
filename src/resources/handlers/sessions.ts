@@ -42,11 +42,10 @@ export function createSessionsHandler(): ResourceHandler {
           continue;
         }
 
-        // Use full relative path as ID (without extension) to match S3 storage keys
-        const relativePath = path.relative(PROJECTS_DIR, filePath);
-        const id = relativePath.replace(/\.jsonl$/, "");
+        const id = path.basename(filePath, ".jsonl");
 
         // Extract project from path for metadata
+        const relativePath = path.relative(PROJECTS_DIR, filePath);
         const project = path.dirname(relativePath);
 
         items.push({
@@ -93,31 +92,33 @@ export function createSessionsHandler(): ResourceHandler {
     async write(
       id: string,
       content: Buffer,
-      _metadata?: Record<string, unknown>
+      metadata?: Record<string, unknown>
     ): Promise<string> {
-      const localPath = await this.getLocalPath(id);
+      const _project = (metadata?.project as string) || "unknown";
+      const localPath = await this.getLocalPath(id, metadata);
+      await fs.mkdir(path.dirname(localPath), { recursive: true });
       await fs.writeFile(localPath, content);
       return localPath;
     },
 
     async getLocalPath(
       id: string,
-      _metadata?: Record<string, unknown>
+      metadata?: Record<string, unknown>
     ): Promise<string> {
-      // ID contains full relative path (e.g., "unknown/agent-aprompt/suggestion-01e46f")
-      const localPath = path.join(PROJECTS_DIR, `${id}.jsonl`);
-      await fs.mkdir(path.dirname(localPath), { recursive: true });
-      return localPath;
+      const project = (metadata?.project as string) || "unknown";
+      const projectDir = path.join(PROJECTS_DIR, project);
+      await fs.mkdir(projectDir, { recursive: true });
+      return path.join(projectDir, `${id}.jsonl`);
     },
 
     async getConflictPath(
       id: string,
-      _metadata?: Record<string, unknown>
+      metadata?: Record<string, unknown>
     ): Promise<string> {
-      // ID contains full relative path
-      const conflictPath = path.join(PROJECTS_DIR, `${id}.conflict.jsonl`);
-      await fs.mkdir(path.dirname(conflictPath), { recursive: true });
-      return conflictPath;
+      const project = (metadata?.project as string) || "unknown";
+      const projectDir = path.join(PROJECTS_DIR, project);
+      await fs.mkdir(projectDir, { recursive: true });
+      return path.join(projectDir, `${id}.conflict.jsonl`);
     },
   };
 }
