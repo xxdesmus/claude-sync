@@ -63,9 +63,17 @@ src/
 
 ### Key Data Flow
 
-1. **Push**: `findLocal()` → `read()` → `encrypt()` → `backend.pushResource()`
+1. **Push**: `findLocal({ modifiedSinceLastSync })` → filter by hash → `read()` → `hashContent()` → `encrypt()` → `backend.pushResource()` → `updateResourceHashBatch()`
 2. **Pull**: `backend.listResources()` → `backend.pullResource()` → `decrypt()` → `handler.write()`
 3. **Pull with conflict detection** (when `--all`): Compare local/remote hashes → prompt resolution → write or skip
+
+### Sync State Tracking
+
+Push tracks what has been synced via `~/.claude-sync/sync-state.json`:
+- After successful push, content hash (SHA-256) is recorded
+- On next push (without `--all`), only resources with changed hashes are pushed
+- Empty files (0 bytes) are automatically skipped
+- Use `--all` flag to bypass sync state and push everything
 
 ### Resource System
 

@@ -72,9 +72,11 @@ claude-sync install --global
 |---------|-------------|
 | `claude-sync init` | Set up storage backend and generate encryption key |
 | `claude-sync install` | Add hooks to Claude Code for automatic sync |
-| `claude-sync push` | Manually push sessions to remote |
+| `claude-sync push` | Push modified resources to remote (only changed since last sync) |
+| `claude-sync push --all` | Push all resources (ignores sync state) |
 | `claude-sync push --verbose` | Push with detailed error messages for failures |
-| `claude-sync pull` | Manually pull sessions from remote |
+| `claude-sync pull` | Pull new sessions from remote |
+| `claude-sync pull --all` | Pull all sessions (may prompt for conflict resolution) |
 | `claude-sync pull --force` | Pull and overwrite local without conflict prompts |
 | `claude-sync status` | Show configuration and sync status |
 
@@ -215,6 +217,25 @@ chmod 600 ~/.claude-sync/key
 
 - **SessionEnd**: When you finish a conversation, it's encrypted and pushed
 - **SessionStart**: When you start Claude Code, new sessions are pulled
+
+## Incremental Sync
+
+`claude-sync` tracks what has been synced to avoid re-pushing unchanged resources:
+
+```bash
+# First push - syncs all resources, records state
+claude-sync push --all
+✔ Pushed 479 sessions
+
+# Subsequent pushes - only syncs modified resources
+claude-sync push
+✔ Pushed 2 sessions   # Only the ones that changed
+
+# Force re-push everything (escape hatch)
+claude-sync push --all
+```
+
+Sync state is stored in `~/.claude-sync/sync-state.json` with SHA-256 content hashes. Empty files (0 bytes) are automatically skipped.
 
 ## Conflict Resolution
 
@@ -411,6 +432,7 @@ npm install -g @xxdesmus/claude-sync
 - [x] ESLint + Prettier + pre-commit hooks
 - [x] Conflict resolution for concurrent edits
 - [x] Automated releases with Release Please
+- [x] Incremental sync (only push modified resources)
 
 ## Contributing
 
