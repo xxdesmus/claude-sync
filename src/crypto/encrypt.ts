@@ -115,11 +115,14 @@ export function isEncrypted(data: Buffer): boolean {
   }
 
   // Try to detect if this is plaintext JSON/JSONL (common session format)
-  // We check the first few bytes to see if it looks like a JSON structure
+  // Encrypted data is random binary - use strict UTF-8 decoding to detect plaintext
   try {
-    const preview = data
-      .subarray(0, Math.min(100, data.length))
-      .toString("utf-8");
+    // Use TextDecoder with fatal:true - throws if data isn't valid UTF-8
+    // Random encrypted bytes are almost never valid UTF-8
+    const decoder = new TextDecoder("utf-8", { fatal: true });
+    const preview = decoder.decode(
+      data.subarray(0, Math.min(100, data.length))
+    );
 
     // If it starts with { or [ and contains valid JSON-like content, it's likely plaintext
     if (preview.startsWith("{") || preview.startsWith("[")) {
@@ -136,8 +139,32 @@ export function isEncrypted(data: Buffer): boolean {
     if (preview.startsWith("{") && preview.includes("}\n{")) {
       return false;
     }
+
+    // Valid UTF-8 but doesn't look like JSON - could be encrypted or other text
+    // Be conservative: if it's valid UTF-8 text, treat as potentially unencrypted
+    // unless it contains binary-looking control characters (ASCII 0-8, 11, 12, 14-31)
+    const hasBinaryChars = preview.split("").some((c) => {
+      const code = c.charCodeAt(0);
+      return (
+        (code >= 0 && code <= 8) ||
+        code === 11 ||
+        code === 12 ||
+        (code >= 14 && code <= 31)
+      );
+    });
+    if (!hasBinaryChars && preview.length > 20) {
+      // Looks like clean text - check if it could be any structured format
+      if (
+        preview.includes('"') ||
+        preview.includes("=") ||
+        preview.includes("<")
+      ) {
+        return false;
+      }
+    }
   } catch {
-    // If we can't decode as UTF-8, it's likely binary/encrypted data
+    // Failed to decode as UTF-8 - this is binary/encrypted data
+    return true;
   }
 
   return true;
