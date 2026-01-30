@@ -66,6 +66,20 @@ src/
 1. **Push**: `findLocal({ modifiedSinceLastSync })` → filter by hash → `read()` → `hashContent()` → `encrypt()` → `backend.pushResource()` → `updateResourceHashBatch()`
 2. **Pull**: `backend.listResources()` → `backend.pullResource()` → `decrypt()` → `handler.write()`
 3. **Pull with conflict detection** (when `--all`): Compare local/remote hashes → prompt resolution → write or skip
+4. **Pull with identical content** (when `--all`): If local exists with same hash, skip (no re-download)
+
+### Session ID Normalization
+
+Sessions are stored differently across machines (subdirectories vs flat files). The sessions handler normalizes IDs to `project/basename` format:
+
+- **Subdirectory**: `~/.claude/projects/myproject/session-123.jsonl` → ID: `myproject/session-123`
+- **Flat file with underscore**: `~/.claude/projects/myproject_session-123.jsonl` → ID: `myproject/session-123`
+
+This ensures the same session produces the same S3 key regardless of local file structure.
+
+Key functions in `src/resources/handlers/sessions.ts`:
+- `normalizeSessionId(basename, dirname)` - Converts to canonical `project/basename` format
+- `parseSessionId(id)` - Extracts project and basename from normalized ID
 
 ### Sync State Tracking
 
@@ -139,6 +153,37 @@ Key components:
 Resolution options: `local` (skip), `remote` (overwrite), `both` (save as .conflict file)
 
 Use `--force` flag to skip prompts and always overwrite local.
+
+## Common Issues
+
+### Duplicate Session Files
+
+If the same session exists in multiple project folders (e.g., `unknown/` and `-Users-xxx/`), this indicates ID normalization wasn't applied consistently. Clean up by keeping files in the correct project folder:
+
+```bash
+# Find duplicates
+find ~/.claude/projects -name "*.jsonl" -exec basename {} \; | sort | uniq -d > /tmp/duplicates.txt
+
+# Delete from unknown/, keep in project folders
+while read basename; do
+  unknown_file="$HOME/.claude/projects/unknown/$basename"
+  if [ -f "$unknown_file" ]; then
+    other=$(find ~/.claude/projects -name "$basename" ! -path "*/unknown/*" | head -1)
+    if [ -n "$other" ]; then
+      rm "$unknown_file"
+    fi
+  fi
+done < /tmp/duplicates.txt
+```
+
+### Hook Credentials
+
+Claude Code hooks run in the shell environment. If `claude-sync pull` fails on SessionStart, ensure credentials are exported in the shell profile (`~/.zshrc`, `~/.bashrc`, or `~/.profile`):
+
+```bash
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+```
 
 ## Commit Conventions
 

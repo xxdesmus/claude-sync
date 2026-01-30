@@ -78,7 +78,9 @@ claude-sync install --global
 | `claude-sync pull` | Pull new sessions from remote |
 | `claude-sync pull --all` | Pull all sessions (may prompt for conflict resolution) |
 | `claude-sync pull --force` | Pull and overwrite local without conflict prompts |
+| `claude-sync pull --verbose` | Pull with detailed error messages for failures |
 | `claude-sync status` | Show configuration and sync status |
+| `claude-sync types` | List available resource types |
 
 ## Storage Backends
 
@@ -194,7 +196,7 @@ chmod 600 ~/.claude-sync/key
 
 ## How Claude Code Hooks Work
 
-`claude-sync install` adds these hooks to your Claude Code settings:
+`claude-sync install` adds these hooks to your Claude Code settings (`~/.claude/settings.json`):
 
 ```json
 {
@@ -202,7 +204,7 @@ chmod 600 ~/.claude-sync/key
     "SessionEnd": [{
       "hooks": [{
         "type": "command",
-        "command": "claude-sync push --session $CLAUDE_SESSION_ID"
+        "command": "claude-sync push --session $CLAUDE_SESSION_ID --file $CLAUDE_TRANSCRIPT_PATH"
       }]
     }],
     "SessionStart": [{
@@ -217,6 +219,8 @@ chmod 600 ~/.claude-sync/key
 
 - **SessionEnd**: When you finish a conversation, it's encrypted and pushed
 - **SessionStart**: When you start Claude Code, new sessions are pulled
+
+**Important:** Hooks run in the shell environment, so your storage credentials (e.g., `AWS_ACCESS_KEY_ID`) must be exported in your shell profile (`~/.zshrc`, `~/.bashrc`, or `~/.profile`).
 
 ## Incremental Sync
 
@@ -274,18 +278,109 @@ claude-sync pull --all --force
    npm config set @xxdesmus:registry https://npm.pkg.github.com
    npm install -g @xxdesmus/claude-sync
    ```
-2. Initialize with the same backend: `claude-sync init --git <same-repo>`
+2. Initialize with the same backend (example for R2):
+   ```bash
+   claude-sync init --r2 my-bucket --endpoint https://ACCOUNT_ID.r2.cloudflarestorage.com
+   ```
 3. Copy your encryption key from your other machine:
    ```bash
    # On old machine
    cat ~/.claude-sync/key | base64
 
    # On new machine
+   mkdir -p ~/.claude-sync
    echo "BASE64_KEY" | base64 -d > ~/.claude-sync/key
    chmod 600 ~/.claude-sync/key
    ```
-4. Pull existing sessions: `claude-sync pull --all`
-5. Install hooks: `claude-sync install --global`
+4. Ensure credentials are in your shell profile (`~/.bashrc`, `~/.zshrc`, or `~/.profile`):
+   ```bash
+   # For R2/S3
+   export AWS_ACCESS_KEY_ID="your-access-key"
+   export AWS_SECRET_ACCESS_KEY="your-secret-key"
+   ```
+5. Source your profile and test:
+   ```bash
+   source ~/.profile  # or ~/.bashrc, ~/.zshrc
+   claude-sync pull --dry-run
+   ```
+6. Pull existing sessions: `claude-sync pull --all`
+7. Install hooks: `claude-sync install --global`
+
+## Troubleshooting
+
+### "SessionStart hook error" when opening Claude Code
+
+The hook can't run `claude-sync pull` because credentials aren't available. Ensure your AWS/R2 credentials are exported in your shell profile:
+
+```bash
+# Add to ~/.zshrc, ~/.bashrc, or ~/.profile
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+```
+
+Then restart your terminal or run `source ~/.profile`.
+
+### "CredentialsProviderError: Could not load credentials"
+
+Same as above - credentials aren't set in the environment. For R2, you need `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables.
+
+### Duplicate hooks in settings.json
+
+If you ran `claude-sync install --global` multiple times, you may have duplicate hooks. Edit `~/.claude/settings.json` and keep only one of each:
+
+```json
+"hooks": {
+  "SessionEnd": [
+    {
+      "hooks": [
+        { "type": "command", "command": "claude-sync push --session $CLAUDE_SESSION_ID --file $CLAUDE_TRANSCRIPT_PATH" }
+      ]
+    }
+  ],
+  "SessionStart": [
+    {
+      "hooks": [
+        { "type": "command", "command": "claude-sync pull" }
+      ]
+    }
+  ]
+}
+```
+
+### Duplicate session files across machines
+
+If you see the same session in multiple project folders (e.g., `unknown/` and `-Users-xxx/`), clean them up:
+
+```bash
+# Find duplicates
+find ~/.claude/projects -name "*.jsonl" -exec basename {} \; | sort | uniq -d > /tmp/duplicates.txt
+
+# For each duplicate, keep the one in the proper project folder, delete from unknown/
+while read basename; do
+  unknown_file="$HOME/.claude/projects/unknown/$basename"
+  if [ -f "$unknown_file" ]; then
+    other=$(find ~/.claude/projects -name "$basename" ! -path "*/unknown/*" | head -1)
+    if [ -n "$other" ]; then
+      rm "$unknown_file"
+    fi
+  fi
+done < /tmp/duplicates.txt
+```
+
+### Session counts differ between machines
+
+After initial sync, clear sync state and re-sync both machines:
+
+```bash
+# On both machines
+rm ~/.claude-sync/sync-state.json
+claude-sync push --all
+
+# Then pull on both
+claude-sync pull --all
+```
+
+Active sessions will always differ slightly - that's expected.
 
 ## Architecture
 
