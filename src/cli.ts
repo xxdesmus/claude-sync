@@ -7,6 +7,7 @@
  */
 
 import { Command } from "commander";
+import { createRequire } from "module";
 import { init } from "./commands/init.js";
 import { push } from "./commands/push.js";
 import { pull } from "./commands/pull.js";
@@ -15,6 +16,9 @@ import { status } from "./commands/status.js";
 import { types } from "./commands/types.js";
 import { ALL_RESOURCE_TYPES, isValidResourceType } from "./resources/index.js";
 
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json");
+
 const program = new Command();
 
 program
@@ -22,7 +26,7 @@ program
   .description(
     "Sync Claude Code conversations, agents, skills, and settings across machines. E2E encrypted, privacy-first."
   )
-  .version("0.1.0");
+  .version(version);
 
 program
   .command("init")
