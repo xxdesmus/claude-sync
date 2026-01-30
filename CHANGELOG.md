@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/xxdesmus/claude-sync/compare/v0.2.0...v0.3.0) (2026-01-30)
+
+
+### Features
+
+* add --verbose flag for detailed push error reporting ([6290337](https://github.com/xxdesmus/claude-sync/commit/62903371a789cc1e844ca17e344ff3d8b4da0e96))
+
 ## [0.2.0](https://github.com/xxdesmus/claude-sync/compare/v0.1.0...v0.2.0) (2026-01-29)
 
 
