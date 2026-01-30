@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/xxdesmus/claude-sync/compare/v0.3.1...v0.3.2) (2026-01-30)
+
+
+### Bug Fixes
+
+* read version from package.json instead of hardcoded value ([ec7c53e](https://github.com/xxdesmus/claude-sync/commit/ec7c53ef8ba00153dcb0107223e386f17f96f5e8))
+
 ## [0.3.1](https://github.com/xxdesmus/claude-sync/compare/v0.3.0...v0.3.1) (2026-01-30)
 
 
