@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/xxdesmus/claude-sync/compare/v0.3.4...v0.4.0) (2026-01-30)
+
+
+### Features
+
+* add --verbose flag to pull command ([1f2dd1e](https://github.com/xxdesmus/claude-sync/commit/1f2dd1e84e4e609785a0219642316f31a01e9b56))
+
 ## [0.3.4](https://github.com/xxdesmus/claude-sync/compare/v0.3.3...v0.3.4) (2026-01-30)
 
 
