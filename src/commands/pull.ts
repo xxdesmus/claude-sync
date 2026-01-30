@@ -231,9 +231,8 @@ async function pullResourceType(
               localModified: local.modifiedAt,
               metadata: remote.metadata,
             });
-          } else {
-            toPull.push(remote);
           }
+          // If no conflict (content identical), skip - don't re-download to a different path
         } else {
           toPull.push(remote);
         }

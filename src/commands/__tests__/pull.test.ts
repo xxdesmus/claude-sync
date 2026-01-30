@@ -355,7 +355,7 @@ describe("pull command", () => {
   });
 
   describe("merge strategy for settings", () => {
-    it("merges content for resources with merge strategy", async () => {
+    it("merges content for resources with merge strategy when local does not exist", async () => {
       const settingsHandler = {
         ...mockResourceHandler,
         config: {
@@ -365,9 +365,12 @@ describe("pull command", () => {
           strategy: "merge" as const,
           storagePrefix: "settings/",
         },
+        // First call (for conflict detection): no local exists
+        // Second call (during merge): local exists for merging
         findLocal: vi
           .fn()
-          .mockResolvedValue([{ id: "settings-1", path: "/path/settings" }]),
+          .mockResolvedValueOnce([]) // No local for pull decision
+          .mockResolvedValue([{ id: "settings-1", path: "/path/settings" }]), // Local exists for merge
         read: vi.fn().mockResolvedValue(Buffer.from("local-settings")),
         write: vi.fn().mockResolvedValue("/path/settings"),
         getLocalPath: vi.fn().mockResolvedValue("/path/settings"),
@@ -390,15 +393,15 @@ describe("pull command", () => {
       ];
       mockBackend.listResources.mockResolvedValue(remoteResources);
 
-      // Pull settings with --all to ensure the resource is pulled
-      await pull({ type: "settings", all: true });
+      // Pull settings (new resource, no --all needed)
+      await pull({ type: "settings" });
 
       // Verify pullResource was called for settings
       expect(mockBackend.pullResource).toHaveBeenCalledWith(
         "settings",
         "settings-1"
       );
-      // Verify merge was called since strategy is "merge" and local exists
+      // Verify merge was called since strategy is "merge" and local exists during write
       expect(settingsHandler.merge).toHaveBeenCalled();
     });
   });
