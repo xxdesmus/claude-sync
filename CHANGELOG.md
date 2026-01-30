@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/xxdesmus/claude-sync/compare/v0.4.3...v0.4.4) (2026-01-30)
+
+
+### Bug Fixes
+
+* normalize session IDs to include project prefix for cross-machine sync ([aecdf86](https://github.com/xxdesmus/claude-sync/commit/aecdf86f78bc2d66ca0dada455ca578a574970ca))
+
 ## [0.4.3](https://github.com/xxdesmus/claude-sync/compare/v0.4.2...v0.4.3) (2026-01-30)
 
 
