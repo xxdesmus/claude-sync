@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/xxdesmus/claude-sync/compare/v0.3.2...v0.3.3) (2026-01-30)
+
+
+### Bug Fixes
+
+* skip empty files during sync ([7f74a4a](https://github.com/xxdesmus/claude-sync/commit/7f74a4a5a94b63a9b957b5bbdfe03f90051e7687))
+
 ## [0.3.2](https://github.com/xxdesmus/claude-sync/compare/v0.3.1...v0.3.2) (2026-01-30)
 
 
