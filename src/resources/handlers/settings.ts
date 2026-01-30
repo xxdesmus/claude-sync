@@ -31,16 +31,38 @@ export function createSettingsHandler(): ResourceHandler {
   return {
     config: RESOURCE_CONFIGS.settings,
 
-    async findLocal(_options?: FindResourceOptions): Promise<ResourceItem[]> {
+    async findLocal(options?: FindResourceOptions): Promise<ResourceItem[]> {
       try {
         const stat = await fs.stat(SETTINGS_FILE);
-        return [
-          {
-            id: SETTINGS_ID,
-            path: SETTINGS_FILE,
-            modifiedAt: stat.mtime,
-          },
-        ];
+        const item: ResourceItem = {
+          id: SETTINGS_ID,
+          path: SETTINGS_FILE,
+          modifiedAt: stat.mtime,
+        };
+
+        if (options?.modifiedSinceLastSync) {
+          const { loadSyncState } = await import("../../utils/syncState.js");
+          const { hashContent } = await import("../../crypto/encrypt.js");
+          const syncState = await loadSyncState();
+
+          const storedHash = syncState.resources.settings?.[SETTINGS_ID]?.hash;
+          if (!storedHash) {
+            // Never synced - include it
+            return [item];
+          }
+
+          // Compare current content hash with stored hash
+          const content = await fs.readFile(SETTINGS_FILE);
+          const currentHash = hashContent(content);
+          if (currentHash !== storedHash) {
+            return [item];
+          }
+
+          // No changes since last sync
+          return [];
+        }
+
+        return [item];
       } catch {
         // Settings file might not exist
         return [];

@@ -4,6 +4,11 @@ import { push } from "../push.js";
 // Mock dependencies
 vi.mock("../../crypto/encrypt.js", () => ({
   encrypt: vi.fn().mockResolvedValue(Buffer.from("encrypted-data")),
+  hashContent: vi.fn().mockReturnValue("mock-hash-value"),
+}));
+
+vi.mock("../../utils/syncState.js", () => ({
+  updateResourceHashBatch: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../backends/index.js", () => ({

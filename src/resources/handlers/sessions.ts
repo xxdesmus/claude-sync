@@ -51,9 +51,26 @@ export function createSessionsHandler(): ResourceHandler {
       }
 
       if (options?.modifiedSinceLastSync) {
-        // TODO: Compare with last sync timestamp
-        // For now, return all
-        return items;
+        const { loadSyncState } = await import("../../utils/syncState.js");
+        const { hashContent } = await import("../../crypto/encrypt.js");
+        const syncState = await loadSyncState();
+
+        const filtered: ResourceItem[] = [];
+        for (const item of items) {
+          const storedHash = syncState.resources.sessions?.[item.id]?.hash;
+          if (!storedHash) {
+            // Never synced - include it
+            filtered.push(item);
+          } else {
+            // Compare current content hash with stored hash
+            const content = await fs.readFile(item.path!);
+            const currentHash = hashContent(content);
+            if (currentHash !== storedHash) {
+              filtered.push(item);
+            }
+          }
+        }
+        return filtered;
       }
 
       return items;

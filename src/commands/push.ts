@@ -5,9 +5,10 @@
 
 import ora from "ora";
 import chalk from "chalk";
-import { encrypt } from "../crypto/encrypt.js";
+import { encrypt, hashContent } from "../crypto/encrypt.js";
 import { getBackend } from "../backends/index.js";
 import { loadConfig } from "../utils/config.js";
+import { updateResourceHashBatch } from "../utils/syncState.js";
 import {
   getResourceHandler,
   ALL_RESOURCE_TYPES,
@@ -127,6 +128,7 @@ async function pushSpecificSession(
   const spinner = ora("Pushing session...").start();
   try {
     const data = await handler.read(resources[0]);
+    const contentHash = hashContent(data);
     const encrypted = await encrypt(data.toString("utf-8"));
     await backend!.pushResource(
       "sessions",
@@ -134,6 +136,12 @@ async function pushSpecificSession(
       encrypted,
       resources[0].metadata
     );
+
+    // Update sync state after successful push
+    await updateResourceHashBatch([
+      { type: "sessions", id: resources[0].id, hash: contentHash },
+    ]);
+
     spinner.succeed("Pushed 1 session");
   } catch (error) {
     spinner.fail(`Failed to push session: ${error}`);
@@ -193,6 +201,7 @@ async function pushResourceType(
     ).start();
     try {
       const data = await handler.read(resources[0]);
+      const contentHash = hashContent(data);
       const encrypted = await encrypt(data.toString("utf-8"));
       await backend!.pushResource(
         type,
@@ -200,6 +209,12 @@ async function pushResourceType(
         encrypted,
         resources[0].metadata
       );
+
+      // Update sync state after successful push
+      await updateResourceHashBatch([
+        { type, id: resources[0].id, hash: contentHash },
+      ]);
+
       spinner.succeed(
         `Pushed 1 ${typeConfig.displayName.toLowerCase().replace(/s$/, "")}`
       );
@@ -221,6 +236,7 @@ async function pushResourceType(
     id: string;
     data: Buffer;
     metadata?: Record<string, unknown>;
+    contentHash: string;
   }> = [];
   let encryptFailed = 0;
   const encryptErrors: Array<{ id: string; error: string }> = [];
@@ -231,11 +247,13 @@ async function pushResourceType(
     const results = await Promise.allSettled(
       batch.map(async (resource) => {
         const data = await handler.read(resource);
+        const contentHash = hashContent(data);
         const encrypted = await encrypt(data.toString("utf-8"));
         return {
           id: resource.id,
           data: encrypted,
           metadata: resource.metadata,
+          contentHash,
         };
       })
     );
@@ -279,6 +297,21 @@ async function pushResourceType(
 
   const totalFailed = failed + encryptFailed;
   const allErrors = [...encryptErrors, ...(pushErrors || [])];
+
+  // Update sync state for successfully pushed resources
+  const failedIds = new Set([
+    ...encryptErrors.map((e) => e.id),
+    ...(pushErrors || []).map((e) => e.id),
+  ]);
+  const successfulResources = encryptedResources.filter(
+    (r) => !failedIds.has(r.id)
+  );
+
+  if (successfulResources.length > 0) {
+    await updateResourceHashBatch(
+      successfulResources.map((r) => ({ type, id: r.id, hash: r.contentHash }))
+    );
+  }
 
   if (totalFailed > 0) {
     spinner.warn(
