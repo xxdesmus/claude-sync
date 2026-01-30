@@ -28,6 +28,7 @@ interface PushOptions {
   file?: string;
   all?: boolean;
   dryRun?: boolean;
+  verbose?: boolean;
 }
 
 /**
@@ -222,6 +223,7 @@ async function pushResourceType(
     metadata?: Record<string, unknown>;
   }> = [];
   let encryptFailed = 0;
+  const encryptErrors: Array<{ id: string; error: string }> = [];
 
   for (let i = 0; i < resources.length; i += ENCRYPT_BATCH_SIZE) {
     const batch = resources.slice(i, i + ENCRYPT_BATCH_SIZE);
@@ -238,11 +240,18 @@ async function pushResourceType(
       })
     );
 
-    for (const result of results) {
+    for (let j = 0; j < results.length; j++) {
+      const result = results[j];
       if (result.status === "fulfilled") {
         encryptedResources.push(result.value);
       } else {
         encryptFailed++;
+        const resourceId = batch[j].id;
+        const errorMessage =
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason);
+        encryptErrors.push({ id: resourceId, error: errorMessage });
       }
     }
 
@@ -256,7 +265,11 @@ async function pushResourceType(
   // Step 2: Push all encrypted resources in batch
   spinner.text = `Writing ${encryptedResources.length} ${typeConfig.displayName.toLowerCase()}...`;
 
-  const { pushed, failed } = await backend!.pushResourceBatch(
+  const {
+    pushed,
+    failed,
+    errors: pushErrors,
+  } = await backend!.pushResourceBatch(
     type,
     encryptedResources,
     (done, total) => {
@@ -265,11 +278,20 @@ async function pushResourceType(
   );
 
   const totalFailed = failed + encryptFailed;
+  const allErrors = [...encryptErrors, ...(pushErrors || [])];
 
   if (totalFailed > 0) {
     spinner.warn(
       `Pushed ${pushed} ${typeConfig.displayName.toLowerCase()}, ${totalFailed} failed`
     );
+
+    // Display detailed errors when verbose flag is set
+    if (options.verbose && allErrors.length > 0) {
+      console.log(chalk.red("\nFailed resources:"));
+      for (const { id, error } of allErrors) {
+        console.log(chalk.red(`  ${id}: ${error}`));
+      }
+    }
   } else {
     spinner.succeed(`Pushed ${pushed} ${typeConfig.displayName.toLowerCase()}`);
   }

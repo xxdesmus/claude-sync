@@ -73,6 +73,7 @@ claude-sync install --global
 | `claude-sync init` | Set up storage backend and generate encryption key |
 | `claude-sync install` | Add hooks to Claude Code for automatic sync |
 | `claude-sync push` | Manually push sessions to remote |
+| `claude-sync push --verbose` | Push with detailed error messages for failures |
 | `claude-sync pull` | Manually pull sessions from remote |
 | `claude-sync pull --force` | Pull and overwrite local without conflict prompts |
 | `claude-sync status` | Show configuration and sync status |

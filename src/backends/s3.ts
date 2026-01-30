@@ -147,10 +147,15 @@ export function createS3Backend(config: S3Config): Backend {
         metadata?: Record<string, unknown>;
       }>,
       onProgress?: (done: number, total: number) => void
-    ): Promise<{ pushed: number; failed: number }> {
+    ): Promise<{
+      pushed: number;
+      failed: number;
+      errors?: Array<{ id: string; error: string }>;
+    }> {
       const total = resources.length;
       let pushed = 0;
       let failed = 0;
+      const errors: Array<{ id: string; error: string }> = [];
 
       // Process in batches for parallel uploads
       for (let i = 0; i < resources.length; i += BATCH_SIZE) {
@@ -169,21 +174,29 @@ export function createS3Backend(config: S3Config): Backend {
                 ContentType: "application/octet-stream",
               })
             );
+            return resource.id;
           })
         );
 
-        for (const result of results) {
+        for (let j = 0; j < results.length; j++) {
+          const result = results[j];
           if (result.status === "fulfilled") {
             pushed++;
           } else {
             failed++;
+            const resourceId = batch[j].id;
+            const errorMessage =
+              result.reason instanceof Error
+                ? result.reason.message
+                : String(result.reason);
+            errors.push({ id: resourceId, error: errorMessage });
           }
         }
 
         onProgress?.(pushed + failed, total);
       }
 
-      return { pushed, failed };
+      return { pushed, failed, errors: errors.length > 0 ? errors : undefined };
     },
 
     async pullResource(type: ResourceType, id: string): Promise<Buffer> {

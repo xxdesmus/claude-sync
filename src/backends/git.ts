@@ -159,10 +159,15 @@ export function createGitBackend(): Backend {
         metadata?: Record<string, unknown>;
       }>,
       onProgress?: (done: number, total: number) => void
-    ): Promise<{ pushed: number; failed: number }> {
+    ): Promise<{
+      pushed: number;
+      failed: number;
+      errors?: Array<{ id: string; error: string }>;
+    }> {
       const total = resources.length;
       let pushed = 0;
       let failed = 0;
+      const errors: Array<{ id: string; error: string }> = [];
 
       const config = RESOURCE_CONFIGS[type];
       const typeDir = path.join(SYNC_DIR, config.storagePrefix);
@@ -183,16 +188,23 @@ export function createGitBackend(): Backend {
             const resourcePath = getResourcePath(type, resource.id);
             await fs.mkdir(path.dirname(resourcePath), { recursive: true });
             await fs.writeFile(resourcePath, resource.data);
-            return resourcePath;
+            return resource.id;
           })
         );
 
         // Count successes/failures
-        for (const result of results) {
+        for (let j = 0; j < results.length; j++) {
+          const result = results[j];
           if (result.status === "fulfilled") {
             pushed++;
           } else {
             failed++;
+            const resourceId = batch[j].id;
+            const errorMessage =
+              result.reason instanceof Error
+                ? result.reason.message
+                : String(result.reason);
+            errors.push({ id: resourceId, error: errorMessage });
           }
         }
 
@@ -212,7 +224,7 @@ export function createGitBackend(): Backend {
         await git.push(["--set-upstream", "origin", "main"]);
       }
 
-      return { pushed, failed };
+      return { pushed, failed, errors: errors.length > 0 ? errors : undefined };
     },
 
     async pullResource(type: ResourceType, id: string): Promise<Buffer> {

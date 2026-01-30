@@ -21,8 +21,9 @@ pnpm format         # Prettier (fix)
 pnpm format:check   # Prettier (check only)
 
 # Local testing
-pnpm start init     # Test init command
-pnpm start status   # Test status command
+pnpm start init            # Test init command
+pnpm start status          # Test status command
+pnpm start push --verbose  # Test push with error details
 ```
 
 ## Project Overview
@@ -84,7 +85,7 @@ To add a new resource type:
 ### Backend Interface
 
 All backends implement the `Backend` interface in `src/backends/index.ts`:
-- `pushResource(type, id, data)` / `pushResourceBatch(type, items)`
+- `pushResource(type, id, data)` / `pushResourceBatch(type, items)` - batch returns `{ pushed, failed, errors? }`
 - `pullResource(type, id)` / `listResources(type)`
 - `deleteResource(type, id)`
 

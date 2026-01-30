@@ -88,7 +88,11 @@ export interface Backend {
       metadata?: Record<string, unknown>;
     }>,
     onProgress?: (done: number, total: number) => void
-  ): Promise<{ pushed: number; failed: number }>;
+  ): Promise<{
+    pushed: number;
+    failed: number;
+    errors?: Array<{ id: string; error: string }>;
+  }>;
 
   /**
    * Pulls a resource of any type from the backend.

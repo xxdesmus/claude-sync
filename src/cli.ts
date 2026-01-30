@@ -50,6 +50,7 @@ program
     "Push all resources (of the specified type, or all types if no type specified)"
   )
   .option("--dry-run", "Preview what would be pushed without actually pushing")
+  .option("--verbose", "Show detailed error messages for failed resources")
   .action((type, options) => {
     // Validate type if provided
     if (type && !isValidResourceType(type)) {
