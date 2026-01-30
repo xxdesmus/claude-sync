@@ -28,6 +28,7 @@ interface PullOptions {
   all?: boolean;
   dryRun?: boolean;
   force?: boolean;
+  verbose?: boolean;
 }
 
 /**
@@ -333,6 +334,7 @@ async function pullResourceType(
 
     let pulled = 0;
     let failed = 0;
+    const pullErrors: Array<{ id: string; error: string }> = [];
     const hashUpdates: Array<{ type: ResourceType; id: string; hash: string }> =
       [];
 
@@ -377,8 +379,11 @@ async function pullResourceType(
 
         pulled++;
         spinner!.text = `Pulled ${pulled}/${toPull.length} ${typeConfig.displayName.toLowerCase()}...`;
-      } catch {
+      } catch (error) {
         failed++;
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        pullErrors.push({ id: resource.id, error: errorMessage });
       }
     }
 
@@ -402,6 +407,14 @@ async function pullResourceType(
 
     if (failed > 0) {
       spinner!.warn(message);
+
+      // Display detailed errors when verbose flag is set
+      if (options.verbose && pullErrors.length > 0) {
+        console.log(chalk.red("\nFailed resources:"));
+        for (const { id, error } of pullErrors) {
+          console.log(chalk.red(`  ${id}: ${error}`));
+        }
+      }
     } else {
       spinner!.succeed(message);
     }

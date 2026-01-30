@@ -81,6 +81,7 @@ program
     "--force",
     "Skip conflict prompts and always overwrite local with remote"
   )
+  .option("--verbose", "Show detailed error messages for failed resources")
   .action((type, options) => {
     // Validate type if provided
     if (type && !isValidResourceType(type)) {
