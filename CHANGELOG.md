@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.6](https://github.com/xxdesmus/claude-sync/compare/v0.4.5...v0.4.6) (2026-04-08)
+
+
+### Bug Fixes
+
+* **security:** cap brace-expansion override at ^2.0.1 to avoid breaking v5.x API ([7215048](https://github.com/xxdesmus/claude-sync/commit/72150484daf58a5d2450488045ae11731f01ae30))
+* **security:** remove ajv override that broke ESLint's eslintrc ([2f59518](https://github.com/xxdesmus/claude-sync/commit/2f595182efa223427c37fc6359aaebbd4d324252))
+
 ## [0.4.5](https://github.com/xxdesmus/claude-sync/compare/v0.4.4...v0.4.5) (2026-01-30)
 
 
