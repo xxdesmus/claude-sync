@@ -34,7 +34,7 @@ vi.mock("glob", () => ({
 
 // Mock simple-git
 vi.mock("simple-git", () => ({
-  default: vi.fn((cwd?: string) => {
+  simpleGit: vi.fn((cwd?: string) => {
     if (cwd) {
       return mockGitInstance;
     }

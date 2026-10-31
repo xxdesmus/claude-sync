@@ -3,7 +3,7 @@
  * Stores encrypted resources in a Git repository for sync across machines.
  */
 
-import simpleGit, { SimpleGit } from "simple-git";
+import { simpleGit, type SimpleGit } from "simple-git";
 import fs from "fs/promises";
 import path from "path";
 import { homedir } from "os";
