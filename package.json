@@ -47,7 +47,7 @@
     "url": "https://github.com/xxdesmus/claude-sync/issues"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.965.0",
