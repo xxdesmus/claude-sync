@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.6](https://github.com/xxdesmus/claude-sync/compare/v0.4.5...v0.4.6) (2026-10-31)
+
+
+### Bug Fixes
+
+* **ci:** drop packageManager pin that conflicts with pnpm/action-setup ([f93c8be](https://github.com/xxdesmus/claude-sync/commit/f93c8bec1e109b46dae5df7e87c55e10a5f7e885))
+* **ci:** require Node &gt;=20; vitest 4 needs it ([c474ccb](https://github.com/xxdesmus/claude-sync/commit/c474ccb635df3c29551fe1dcdbfee686d66d959a))
+* **deps:** clear all high/critical advisories (0 pnpm-audit findings) ([c89bfcf](https://github.com/xxdesmus/claude-sync/commit/c89bfcf590a87bea7c782b8bf650de6a657b6078))
+* **security:** cap brace-expansion override at ^2.0.1 to avoid breaking v5.x API ([7215048](https://github.com/xxdesmus/claude-sync/commit/72150484daf58a5d2450488045ae11731f01ae30))
+* **security:** remove ajv override that broke ESLint's eslintrc ([2f59518](https://github.com/xxdesmus/claude-sync/commit/2f595182efa223427c37fc6359aaebbd4d324252))
+
 ## [0.4.5](https://github.com/xxdesmus/claude-sync/compare/v0.4.4...v0.4.5) (2026-01-30)
 
 
